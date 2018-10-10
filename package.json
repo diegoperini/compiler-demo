@@ -1,0 +1,10 @@
+{
+  "name": "compiler-demo",
+  "version": "0.0.1",
+  "bin" : "./src/index.coffee",
+  "dependencies": {},
+  "devDependencies": {
+    "coffeelint": "latest",
+    "coffeescript": "latest"
+  }
+}
