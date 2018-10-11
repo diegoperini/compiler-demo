@@ -6,9 +6,8 @@ fs = require 'fs'
 resolvePath = require('path').resolve
 
 # Watcher Context
-context = {
+context =
   watchedFiles: {}
-}
 
 # Argument parsing
 if process.argv.length is 3
@@ -20,10 +19,9 @@ if process.argv.length is 3
       # Check for files with matching extension
       check = () ->
         execOpts =
-          cwd: dirToWatch
           encoding: "utf8"
         try
-          execResult = execSync "find . -type f -name \"*.d2\" | grep .d2", execOpts
+          execResult = execSync "find " + dirToWatch + " -type f -name \"*.d2\" | grep .d2", execOpts
           d2Files = execResult.split '\n'
           if d2Files?
             d2Files = d2Files.filter (f) -> f isnt ''
@@ -51,7 +49,7 @@ if process.argv.length is 3
         # Compile a single file with a given path
         compileSingleFile = (f) ->
           console.log "Recompiling " + f
-          return compiler.compile f
+          compiler.compile f
 
         # Uncompile a single file with a given path
         uncompileSingleFile = (f) ->
@@ -74,16 +72,25 @@ if process.argv.length is 3
         comparison.filesToWatch.forEach (f) ->
           console.log f + " - Watched"
 
+          # TODO : clean this up
           if !context.watchedFiles[f]? and f.isAccessibleFile()
-            context.watchedFiles[f] =
-              d2module: compileSingleFile f
-              watcher: fs.watch f, persistent: true, () ->
-                if f.isAccessibleFile()
-                  context.watchedFiles[f].d2module = compileSingleFile f
-                  runModule context.watchedFiles[f].d2module
-                else
-                  uncompileSingleFile f
-            runModule context.watchedFiles[f].d2module
+            result = compileSingleFile f
+            if result.success
+              delete result.success
+              context.watchedFiles[f] =
+                d2module: result
+                watcher: fs.watch f, persistent: true, () ->
+                  if f.isAccessibleFile()
+                    result = compileSingleFile f
+                    if result.success
+                      delete result.success
+                      context.watchedFiles[f].d2module = result
+                      runModule context.watchedFiles[f].d2module
+                    else
+                      uncompileSingleFile f
+                  else
+                    uncompileSingleFile f
+              runModule context.watchedFiles[f].d2module
 
       # Periodically keep context up to date
       watchEveryting = () -> recompile compare check()
@@ -95,5 +102,5 @@ if process.argv.length is 3
     console.error "Error: Given path format is invalid!"
     process.exit 1
 else
-  console.error "Error: No path specified to watch!"
-  process.exit 1
+  console.error "\nWarning: No path specified to watch!"
+  process.exit 0

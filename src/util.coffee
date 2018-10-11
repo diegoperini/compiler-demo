@@ -13,3 +13,6 @@ String::isAccessibleFile = () ->
     accessible = false
 
   return accessible and isFile
+
+console.plog = (l) ->
+  console.log JSON.stringify l, null, 4
