@@ -4,17 +4,17 @@ fs = require 'fs'
 compile = (filePath) ->
   try
     parseTree = parser.parse fs.readFileSync filePath, 'utf8'
-    console.plog parseTree
-
-    console.log "\nCompiled!"
 
     if parseTree?
+      console.plog parseTree
+      console.log "\nCompiled!"
+
       result =
         success: true,
         parserTree: parseTree
       return result
     else
-      console.error "Parse error"
+      console.error "Parse error due to incomplete source file!"
 
       result =
         success: false,

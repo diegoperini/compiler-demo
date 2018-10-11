@@ -9,7 +9,7 @@ const lexer = moo.compile({
 
 @lexer lexer
 
-main -> %ws numbers %ws {% (d) => d[1] %}
+main -> %ws:? numbers %ws:? {% (d) => d[1] %}
 
 numbers -> %number:+ {% (d) => d[0] %}
-        | %number:+ %ws numbers {% (d) => [d[0][0], d[2][0]] %}
+        | %number:+ %ws numbers {% (d) => [d[0][0], ...d[2]] %}

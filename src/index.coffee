@@ -63,14 +63,14 @@ if process.argv.length is 3
 
         # Unwatch all old files
         comparison.filesToUnwatch.forEach (f) ->
-          console.log f + " - Unwatched"
+          console.log "\n" + f + " - Unwatched"
 
           if context.watchedFiles[f]?
             uncompileSingleFile f
 
         # Compile and watch all new files
         comparison.filesToWatch.forEach (f) ->
-          console.log f + " - Watched"
+          console.log "\n" + f + " - Watched"
 
           # TODO : clean this up
           if !context.watchedFiles[f]? and f.isAccessibleFile()
