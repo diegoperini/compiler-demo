@@ -12,7 +12,9 @@ parse = (str) ->
   parser.feed str
 
   if parser.results.length > 0
-    return parser.results
+    # if parser.results.length isnt 1
+    #   console.error 'Ambigious grammar!'
+    return parser.results[0]
   else
     return null
 

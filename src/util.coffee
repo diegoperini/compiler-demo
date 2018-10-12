@@ -14,5 +14,4 @@ String::isAccessibleFile = () ->
 
   return accessible and isFile
 
-console.plog = (l) ->
-  console.log JSON.stringify l, null, 4
+console.plog = (l) -> console.log JSON.stringify l, null, 4

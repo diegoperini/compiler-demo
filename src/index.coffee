@@ -8,6 +8,7 @@ resolvePath = require('path').resolve
 # Watcher Context
 context =
   watchedFiles: {}
+  grammarWatcher: null
 
 # Argument parsing
 if process.argv.length is 3
@@ -60,6 +61,11 @@ if process.argv.length is 3
 
         # Run a d2module
         runModule = (d2module) -> compiler.run d2module
+
+        # Watch grammar change to trigger recompile
+        context.grammarWatcher = fs.watch (resolvePath './src/grammar.ne'), persistent: true, () ->
+          (Object.keys context.watchedFiles).forEach (f) ->
+            uncompileSingleFile f
 
         # Unwatch all old files
         comparison.filesToUnwatch.forEach (f) ->
