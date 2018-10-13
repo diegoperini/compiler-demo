@@ -3,6 +3,7 @@
   "version": "0.0.1",
   "bin": "./src/index.coffee",
   "dependencies": {
+    "moo": "^0.4.3",
     "nearley": "^2.15.1"
   },
   "devDependencies": {

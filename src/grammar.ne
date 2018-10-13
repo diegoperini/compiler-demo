@@ -4,7 +4,7 @@ const moo = require("moo");
 const lexer = moo.compile({
   nl: { match: /[ \t]*\n/, lineBreaks: true },
   ws: { match: /[ \t]+/, lineBreaks: false },
-  string: /\"[^\n\r]+\"/,
+  string: /\"[^\n\r\t]+\"/,
   number: /[1-9][0-9]*/,
   zero: /0/,
   openCurly: /\{/,
@@ -76,13 +76,32 @@ function stripQuotes(str) {
     return str;
   }
 }
+
+function locations(str, substr){
+  var a=[],i=-1;
+  while((i=str.indexOf(substr,i+1)) >= 0) a.push(i);
+  return a;
+}
+
+function validString(str) {
+  try {
+    doubleQuoteLocations = locations(str, "\"");
+    backslashLocations = locations(str, "\\");
+
+    // TODO : check if escaped characters are legit
+    return true;
+  } catch (e) {
+    return null
+  }
+}
 %}
 
 @lexer lexer
+@builtin "string.ne"
 
 # Main
-main -> onl declarations onl {%
-  (d) => { return { declarations: d[1]} }
+main -> declaration:* {%
+  (d) => { return { declarations: d[0]} }
 %}
 
 # White space Helpers
@@ -90,8 +109,8 @@ ws -> %ws
 ows -> ws:?
 
 # Newline helpers
-nl -> %nl:+
-onl -> ws:? | nl:?
+nl -> ows %nl:+
+onl -> ows nl:?
 
 # Name helpers
 name -> %lalpha
@@ -120,27 +139,33 @@ nativeType -> nativeType %openBrace number:? %closeBrace {% (d) => { return { ty
             | %stringt {% (d) => { return { typename: d[0], array: false } } %}
 
 # Declarations
-declarations -> ows declaration nl {% (d) => [d[1]] %}
-             | ows declaration nl declarations {% (d) => [d[1], ...d[4]] %}
+declaration -> onl ows declarationBody nl {% (d) => d[2] %}
+             # | declarations declarations {% (d) => [d[0], ...d[4]] %}
 
-declaration -> typeDeclaration {% id %}
+declarationBody -> typeDeclaration {% id %}
 
-typeDeclaration -> ows typename onl %openCurly nl typeBody:? %closeCurly {% (d) => { return { typename:d[1], body:d[5] } } %}
-typeBody -> ows typeBodyDeclaration nl {% (d) => [d[1]] %}
-          | ows typeBodyDeclaration nl typeBody {% (d) => [d[1], ...d[3]] %}
-typeBodyDeclaration -> %region ws word {% (d) => { return { region: d[2] } } %}
+typeDeclaration -> typename onl %openCurly nl typeBody:* onl %closeCurly {% (d) => { return { typename:d[0][0], body:d[4] } } %}
+typeBody -> ows typeBodyDeclaration nl {% (d) => d[1] %}
+typeBodyDeclaration -> %region ws word {% (d) => { return { region: d[2][0][0] } } %}
                      | %horizontal {% () => { return { layout: "horizontal" } } %}
                      | %vertical {% () => { return { layout: "vertical" } } %}
-                     | propertyDeclaration
+                     | propertyDeclaration {% (d) => d[0] %}
 
-propertyDeclaration -> name onl %colon onl nativeType {% (d) => { return { propertyName: d[0].value, typename: d[4].typename, assignment: null } } %}
-                     | name onl %colon onl nativeType onl %equals onl literal {% (d) => { return { propertyName: d[0].value, typename: d[4].typename, assignment: d[8][0] } } %}
+propertyDeclaration -> name onl %colon onl nativeType propertyAssignment:? {% (d) => { return { propertyName: d[0].value, typename: d[4].typename, assignment: d[5] } } %}
+propertyAssignment -> onl %equals onl literal {% (d) => { return { operation: d[1], expression: d[3][0] } } %}
 
 # Literals
 literal -> intLiteral
          | stringLiteral
-intLiteral -> number {% (d) => { return { nativeType: "Int", value: deepExtractIntValue(d[0]) } } %}
-stringLiteral -> %string {% (d) => { return { nativeType: "String", value: stripQuotes(deepConcatValues(d)) } } %}
+intLiteral -> number {% (d) => { return { nativeType: "Int", literalValue: deepExtractIntValue(d[0]) } } %}
+stringLiteral -> %string {% (d, l, reject) => {
+  if (true || validString(d[0].value)) {
+    // TODO : Maybe return buffer or byte array, dunno
+    return { nativeType: "String", literalValue: stripQuotes(deepConcatValues(d)) }
+  } else {
+    return reject;
+  }
+} %}
 # TODO : implement float literals
 # TODO : implement bool literals
 # TODO : implement array literals

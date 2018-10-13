@@ -12,9 +12,11 @@ parse = (str) ->
   parser.feed str
 
   if parser.results.length > 0
-    # if parser.results.length isnt 1
-    #   console.error 'Ambigious grammar!'
-    return parser.results[0]
+    result =
+      tree: parser.results[0]
+      ambigious: parser.results.length isnt 1
+      parseCount: parser.results.length
+    return result
   else
     return null
 
