@@ -5,7 +5,8 @@ const lexer = moo.compile({
   nl: { match: /[ \t]*\n/, lineBreaks: true },
   ws: { match: /[ \t]+/, lineBreaks: false },
   string: /\"[^\n\r\t]+\"/,
-  number: /[1-9][0-9]*/,
+  emptyString: /\"\"/,
+  number: /-?(?:[0-9]|[1-9][0-9]+)(?:\.[0-9]+)?(?:[eE][-+]?[0-9]+)?\b/,
   zero: /0/,
   openCurly: /\{/,
   closeCurly: /\}/,
@@ -14,48 +15,19 @@ const lexer = moo.compile({
   colon: /:/,
   equals: /=/,
   doubleQuote: /"/,
-  int8t: /Int8/,
-  int16t: /Int16/,
-  int32t: /Int32/,
-  int32t: /Int364/,
-  uint8t: /UInt8/,
-  uint16t: /UInt16/,
-  uint32t: /UInt32/,
-  uint64t: /UInt64/,
-  float16t: /Float16/,
-  float32t: /Float32/,
-  float64t: /Float64/,
-  intt: /Int/,
-  floatt: /Float/,
-  boolt: /Bool/,
-  stringt: /String/,
-  unitt: /Unit/,
-  voidt: /Void/,
-  ualpha: /[A-Z_][a-zA-Z0-9_]+/,
-  lalpha: /[a-z_][a-zA-Z0-9_]+/,
+  ualpha: /[A-Z_][a-zA-Z0-9_]*/,
+  lalpha: /[a-z_][a-zA-Z0-9_]*/,
   alpha: /[a-zA-Z0-9_]+/,
   region: /#region/,
   horizontal: /#horizontal/,
   vertical: /#vertical/,
 });
 
-function deepConcatValues(d) {
+function deepExtractNumberValue(d) {
   if (d && Array.isArray(d)) {
-    return d.map((i) => deepConcatValues(i)).join("");
+    return deepExtractNumberValue(d[0]);
   } else if (d && d.value) {
-    return d.value;
-  } else if (typeof d === "string") {
-    return d;
-  } else {
-    return "";
-  }
-}
-
-function deepExtractIntValue(d) {
-  if (d && Array.isArray(d)) {
-    return deepExtractIntValue(d[0]);
-  } else if (d && d.value) {
-    return parseInt(d.value);
+    return parseFloat(d.value);
   } else if (typeof d === "number") {
     return d;
   } else {
@@ -63,36 +35,10 @@ function deepExtractIntValue(d) {
   }
 }
 
-function stripQuotes(str) {
-  if (str[0] === '"') {
-    return stripQuotes(str.substr(1));
-  } else if (str[0] === '\'') {
-    return stripQuotes(str.substr(1));
-  } else if (str[str.length - 1] === '"') {
-    return stripQuotes(str.substr(0, str.length - 1));
-  } else if (str[str.length - 1] === '\'') {
-    return stripQuotes(str.substr(0, str.length - 1));
-  } else {
-    return str;
-  }
-}
-
 function locations(str, substr){
   var a=[],i=-1;
   while((i=str.indexOf(substr,i+1)) >= 0) a.push(i);
   return a;
-}
-
-function validString(str) {
-  try {
-    doubleQuoteLocations = locations(str, "\"");
-    backslashLocations = locations(str, "\\");
-
-    // TODO : check if escaped characters are legit
-    return true;
-  } catch (e) {
-    return null
-  }
 }
 %}
 
@@ -105,7 +51,7 @@ main -> declaration:* {%
 %}
 
 # White space Helpers
-ws -> %ws
+ws -> %ws lineComment:?
 ows -> ws:?
 
 # Newline helpers
@@ -113,60 +59,119 @@ nl -> ows %nl:+
 onl -> ows nl:?
 
 # Name helpers
-name -> %lalpha
-typename -> %ualpha
-word -> %alpha | name | typename
+name -> %lalpha {% (d) => d[0].value %}
+typeName -> %ualpha {% (d) => d[0].value %}
+word -> %alpha {% (d) => d[0].value %} | name | typeName
 number -> %number | %zero
 
 # Native types
-nativeType -> nativeType %openBrace number:? %closeBrace {% (d) => { return { typename: d[0].typename.value, array: true, size: d[2] ? parseInt(d[2][0].value) : null } } %}
-            | %unitt {% (d) => { return { typename: d[0], array: false } } %}
-            | %voidt {% (d) => { return { typename: d[0], array: false } } %}
-            | %int8t {% (d) => { return { typename: d[0], array: false } } %}
-            | %int16t {% (d) => { return { typename: d[0], array: false } } %}
-            | %int32t {% (d) => { return { typename: d[0], array: false } } %}
-            | %int32t {% (d) => { return { typename: d[0], array: false } } %}
-            | %uint8t {% (d) => { return { typename: d[0], array: false } } %}
-            | %uint16t {% (d) => { return { typename: d[0], array: false } } %}
-            | %uint32t {% (d) => { return { typename: d[0], array: false } } %}
-            | %uint64t {% (d) => { return { typename: d[0], array: false } } %}
-            | %float16t {% (d) => { return { typename: d[0], array: false } } %}
-            | %float32t {% (d) => { return { typename: d[0], array: false } } %}
-            | %float64t {% (d) => { return { typename: d[0], array: false } } %}
-            | %intt {% (d) => { return { typename: d[0], array: false } } %}
-            | %floatt {% (d) => { return { typename: d[0], array: false } } %}
-            | %boolt {% (d) => { return { typename: d[0], array: false } } %}
-            | %stringt {% (d) => { return { typename: d[0], array: false } } %}
+nativeType -> nonArrayNativeTypeType arraySpecifier:? {% (d, l, r) => {
+              if (d[1] !== null && d[1] !== undefined) {
+                if (d[1] > 0 && Number.isInteger(d[1])) {
+                  return { name: d[0].value, array: true, size: d[1]};
+                } else {
+                  console.error("Illegal array size.");
+                  return r;
+                }
+              } else {
+                return { name: d[0].value, array: false };
+              }
+            } %}
+arraySpecifier -> %openBrace ows %number ows %closeBrace {% (d) => parseFloat(d[2].value) %}
+
+nonArrayNativeTypeType -> %ualpha {% (d, l, r) => {
+  switch (d[0].value) {
+    case "Int":
+      d[0].value = "Int32";
+      return d[0];
+    case "UInt":
+      d[0].value = "UInt32";
+      return d[0];
+    case "Float":
+      d[0].value = "Float32";
+      return d[0];
+    case "Int8":
+    case "Int16":
+    case "Int32":
+    case "Int364":
+    case "UInt8":
+    case "UInt16":
+    case "UInt32":
+    case "UInt64":
+    case "Float16":
+    case "Float32":
+    case "Float64":
+    case "Bool":
+    case "String":
+    case "Void":
+      return d[0];
+    default:
+      return r;
+  }
+} %}
 
 # Declarations
 declaration -> onl ows declarationBody nl {% (d) => d[2] %}
-             # | declarations declarations {% (d) => [d[0], ...d[4]] %}
 
 declarationBody -> typeDeclaration {% id %}
 
-typeDeclaration -> typename onl %openCurly nl typeBody:* onl %closeCurly {% (d) => { return { typename:d[0][0], body:d[4] } } %}
+typeDeclaration -> typeName onl %openCurly nl typeBody:* onl %closeCurly {% (d) => { return { declaration: "type", name:d[0], body:d[4] } } %}
 typeBody -> ows typeBodyDeclaration nl {% (d) => d[1] %}
 typeBodyDeclaration -> %region ws word {% (d) => { return { region: d[2][0][0] } } %}
                      | %horizontal {% () => { return { layout: "horizontal" } } %}
                      | %vertical {% () => { return { layout: "vertical" } } %}
                      | propertyDeclaration {% (d) => d[0] %}
+                     | declarationBody {% id %}
 
-propertyDeclaration -> name onl %colon onl nativeType propertyAssignment:? {% (d) => { return { propertyName: d[0].value, typename: d[4].typename, assignment: d[5] } } %}
-propertyAssignment -> onl %equals onl literal {% (d) => { return { operation: d[1], expression: d[3][0] } } %}
-
-# Literals
-literal -> intLiteral
-         | stringLiteral
-intLiteral -> number {% (d) => { return { nativeType: "Int", literalValue: deepExtractIntValue(d[0]) } } %}
-stringLiteral -> %string {% (d, l, reject) => {
-  if (true || validString(d[0].value)) {
-    // TODO : Maybe return buffer or byte array, dunno
-    return { nativeType: "String", literalValue: stripQuotes(deepConcatValues(d)) }
+propertyDeclaration -> name onl %colon onl nativeType propertyAssignment:? {% (d, l, r) => {
+  if (d[5]) {
+    if (d[4].name.indexOf(d[5].expression.nativeType) != -1 && d[4].size === undefined) {
+      return { declaration: "property", propertyName: d[0], type: d[4], assignment: d[5].expression };
+    } else {
+      // Assignment literal type do not match with propery type
+      console.error("Assignment literal type does not match with propery type: " + d[5].expression.nativeType + " != " + d[4].name);
+      return r;
+    }
   } else {
-    return reject;
+    return { declaration: "property", propertyName: d[0], type: d[4], assignment: null };
   }
 } %}
-# TODO : implement float literals
-# TODO : implement bool literals
-# TODO : implement array literals
-# TODO : implement unit literal
+propertyAssignment -> onl %equals onl literal {% (d) => { return { operation: d[1].value, expression: d[3][0] } } %}
+
+# Literals
+literal -> numberLiteral
+         | stringLiteral
+         | boolLiteral
+
+numberLiteral -> %number {% (d, l, r) => {
+  var value = deepExtractNumberValue(d[0])
+  var dotExists = d[0].value.indexOf(".") !== -1;
+
+  function isFloat(n){
+    return Number(n) === n && n % 1 !== 0;
+  }
+
+  if (Number.isInteger(value) && !dotExists) {
+    return { nativeType: "Int", literalValue: value };
+  } else if ((isFloat(value) || Number.isInteger(value)) && dotExists) {
+    return { nativeType: "Float", literalValue: value };
+  } else {
+    console.error("Literal is not Number: " + value)
+    return r;
+  }
+} %}
+
+# Copied and extended from https://github.com/kach/nearley/blob/master/examples/json.ne
+stringLiteral -> %string {% (d) => { return { nativeType: "String", literalValue: JSON.parse(d[0].value) } } %}
+               | %emptyString {% (d) => { return { nativeType: "String", literalValue: "" } } %}
+
+boolLiteral -> %lalpha {% (d, l, r) => {
+  switch (d[0].value) {
+    case "true":
+      return { nativeType: "Bool", literalValue: true };
+    case "false":
+      return { nativeType: "Bool", literalValue: false };
+    default:
+      return r;
+  }
+} %}
