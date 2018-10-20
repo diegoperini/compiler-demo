@@ -65,7 +65,7 @@ word -> %alpha {% (d) => d[0].value %} | name | typeName
 number -> %number | %zero
 
 # Native types
-nativeType -> nonArrayNativeTypeType arraySpecifier:? {% (d, l, r) => {
+nativeType -> nonArrayNativeType arraySpecifier:? {% (d, l, r) => {
               if (d[1] !== null && d[1] !== undefined) {
                 if (d[1] > 0 && Number.isInteger(d[1])) {
                   return { name: d[0].value, array: true, size: d[1]};
@@ -79,7 +79,7 @@ nativeType -> nonArrayNativeTypeType arraySpecifier:? {% (d, l, r) => {
             } %}
 arraySpecifier -> %openBrace ows %number ows %closeBrace {% (d) => parseFloat(d[2].value) %}
 
-nonArrayNativeTypeType -> %ualpha {% (d, l, r) => {
+nonArrayNativeType -> %ualpha {% (d, l, r) => {
   switch (d[0].value) {
     case "Int":
       d[0].value = "Int32";
