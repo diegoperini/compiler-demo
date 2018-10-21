@@ -6,4 +6,5 @@
 
 ## TODO List
 * Array literals
-* Tuple type
+* Tuple literals
+* Preprocessor directives

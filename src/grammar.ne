@@ -2,7 +2,7 @@
 const moo = require("moo");
 
 const lexer = moo.compile({
-  nl: { match: /[ \t]*\n/, lineBreaks: true },
+  nl: { match: /\n/, lineBreaks: true },
   ws: { match: /[ \t]+/, lineBreaks: false },
   string: /\"[^\n\r\t]+\"/,
   emptyString: /\"\"/,
@@ -12,7 +12,10 @@ const lexer = moo.compile({
   closeCurly: /\}/,
   openBrace: /\[/,
   closeBrace: /\]/,
+  openParan: /\(/,
+  closeParan: /\)/,
   colon: /:/,
+  comma: /,/,
   equals: /=/,
   doubleQuote: /"/,
   ualpha: /[A-Z_][a-zA-Z0-9_]*/,
@@ -51,12 +54,13 @@ main -> declaration:* {%
 %}
 
 # White space Helpers
-ws -> %ws lineComment:?
+ws -> %ws
 ows -> ws:?
 
 # Newline helpers
-nl -> ows %nl:+
-onl -> ows nl:?
+nl -> ows newLine:+
+onl -> ows newLine:*
+newLine -> %nl ows
 
 # Name helpers
 name -> %lalpha {% (d) => d[0].value %}
@@ -66,20 +70,28 @@ number -> %number | %zero
 
 # Native types
 nativeType -> nonArrayNativeType arraySpecifier:? {% (d, l, r) => {
-              if (d[1] !== null && d[1] !== undefined) {
-                if (d[1] > 0 && Number.isInteger(d[1])) {
-                  return { name: d[0].value, array: true, size: d[1]};
+              if (d[1] !== null && d[1] !== undefined ) {
+                if ((d[1] > 0 && Number.isInteger(d[1])) || d[1] === "auto") {
+                  return { name: d[0].value, tuple: d[0].tuple, array: true, size: null};
                 } else {
                   console.error("Illegal array size.");
                   return r;
                 }
               } else {
-                return { name: d[0].value, array: false };
+                return { name: d[0].value, tuple: d[0].tuple, array: false };
               }
             } %}
-arraySpecifier -> %openBrace ows %number ows %closeBrace {% (d) => parseFloat(d[2].value) %}
+nonArrayNativeType -> tuple {% id %} | nonTupleNativeType {% id %}
+arraySpecifier -> %openBrace onl %number:? onl %closeBrace {% (d) => {
+  if (d[2] !== null && d[2] !== undefined) {
+    return parseFloat(d[2].value)
+  } else {
+    return "auto";
+  }
+} %}
 
-nonArrayNativeType -> %ualpha {% (d, l, r) => {
+nonTupleNativeType -> %ualpha {% (d, l, r) => {
+  d[0].tuple = null;
   switch (d[0].value) {
     case "Int":
       d[0].value = "Int32";
@@ -110,13 +122,23 @@ nonArrayNativeType -> %ualpha {% (d, l, r) => {
   }
 } %}
 
+tuple -> %openParan tuplePropertyList:? tupleProperty onl %closeParan {% (d, l , r) => {
+  return { tuple: [...d[1], d[2]], value: null };
+} %}
+tuplePropertyList -> tupleProperty onl %comma tuplePropertyList:* {% (d, l, r) => {
+  return [d[0], ...d[3]];
+} %}
+tupleProperty -> onl name onl %colon onl nativeType {% (d, l, r) => {
+  return { declaration: "property", propertyName: d[1], type: d[5], assignment: null };
+} %}
+
 # Declarations
-declaration -> onl ows declarationBody nl {% (d) => d[2] %}
+declaration -> declarationBody nl {% (d) => d[0] %}
 
 declarationBody -> typeDeclaration {% id %}
 
-typeDeclaration -> typeName onl %openCurly nl typeBody:* onl %closeCurly {% (d) => { return { declaration: "type", name:d[0], body:d[4] } } %}
-typeBody -> ows typeBodyDeclaration nl {% (d) => d[1] %}
+typeDeclaration -> typeName onl %openCurly nl typeBody:* %closeCurly {% (d) => { return { declaration: "type", name:d[0], body:d[4] } } %}
+typeBody -> typeBodyDeclaration nl {% (d) => d[0] %}
 typeBodyDeclaration -> %region ws word {% (d) => { return { region: d[2][0][0] } } %}
                      | %horizontal {% () => { return { layout: "horizontal" } } %}
                      | %vertical {% () => { return { layout: "vertical" } } %}
