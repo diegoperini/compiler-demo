@@ -5,9 +5,9 @@ execSync = (require 'child_process').execSync
 
 parse = (str) ->
   # Hot reload grammar
-  delete require.cache[require.resolve "./grammar.js"]
+  delete require.cache[require.resolve "./grammar"]
   execSync "npm run buildGrammar"
-  grammar = require "./grammar.js"
+  grammar = require "./grammar"
 
   parser = new nearley.Parser nearley.Grammar.fromCompiled grammar
   str = str.replace comments.lineComment, (m) -> "\n".repeat (m.match(/\n/g) || []).length

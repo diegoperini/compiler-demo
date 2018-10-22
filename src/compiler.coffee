@@ -1,5 +1,7 @@
+(require 'ts-node').register()
 parser = require './parser'
 fs = require 'fs'
+require './llvm-demo'
 
 compile = (filePath) ->
   try
