@@ -2,6 +2,11 @@ import * as llvm from "llvm-node"
 
 // Context
 let context = new llvm.LLVMContext
+llvm.initializeAllTargetInfos()
+llvm.initializeAllTargets()
+llvm.initializeAllTargetMCs()
+llvm.initializeAllAsmParsers()
+llvm.initializeAllAsmPrinters()
 
 // Native Types
 type IntT = { t: llvm.Type, signed: boolean }
@@ -74,7 +79,14 @@ function getStringType(count: number) : StringT {
 
 // Scopes
 function createModule(name: string) : llvm.Module {
-  return new llvm.Module(name, context)
+  let m = new llvm.Module(name, context)
+  m.targetTriple = "x86_64-apple-darwin17.7.0"
+
+  let target = llvm.TargetRegistry.lookupTarget(m.targetTriple)
+  let targetMachine = target.createTargetMachine(m.targetTriple, "generic")
+  m.dataLayout = targetMachine.createDataLayout()
+
+  return m
 }
 
 type Main = { mainBlock: llvm.BasicBlock, mainBuilder: llvm.IRBuilder, mainReturnAlloca: llvm.AllocaInst}
@@ -86,7 +98,7 @@ function createMain(llvmModule: llvm.Module) : Main {
   let mainBuilder = new llvm.IRBuilder(mainBlock)
   let mainReturnAlloca = mainBuilder.createAlloca(intType)
 
-  mainBuilder.createStore(createConstant(2), mainReturnAlloca)
+  mainBuilder.createStore(createConstant(0), mainReturnAlloca)
   mainBuilder.createRet(mainBuilder.createLoad(mainReturnAlloca))
 
   return { mainBlock, mainBuilder, mainReturnAlloca }
@@ -119,7 +131,14 @@ function test() {
   // =====
   // ts-node src/llvm-demo.ts
   // llc -o lol.asm lol.bit
-  // llvm-as -i lol lol.asm
+  // as lol.asm -o lol.o
+  // clang lol.o  -o lol
+  // otool -tvV lol
+
+  // ts-node src/llvm-demo.ts
+  // llc -filetype=obj -o lol.o lol.bit
+  // clang lol.o -o lol
+  // otool -tvV lol
 }
 
 test()
