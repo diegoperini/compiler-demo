@@ -1,4 +1,6 @@
 import * as llvm from "llvm-node"
+import 'coffeescript/register'
+import './util'
 
 // Context
 let context = new llvm.LLVMContext
@@ -44,11 +46,10 @@ function getUint64Type() : IntT {
   return { t: Uint64Type, signed: false }
 }
 
-// TODO : add Float16Type once getHalfTy() is in the API
-// let Float16Type = llvm.Type.getFloatTy(context)
-// function getFloat16Type() : { t: llvm.Type } {
-//   return { t: Float16Type }
-// }
+let Float16Type = llvm.Type.getHalfTy(context)
+function getFloat16Type() : { t: llvm.Type } {
+  return { t: Float16Type }
+}
 type FloatT = { t: llvm.Type }
 let Float32Type = llvm.Type.getFloatTy(context)
 function getFloat32Type() : FloatT {
@@ -77,6 +78,15 @@ function getStringType(count: number) : StringT {
   return { t: llvm.ArrayType.get(StringType, count), count: count }
 }
 
+type TypeT = { t: llvm.Type, properties: TypeT[] } | IntT | FloatT | VoidT | StringT
+function createType(properties: TypeT[], name?: string) {
+  let struct = llvm.StructType.create(context, name)
+
+  struct.setBody(properties.map((p) => p.t), false)
+
+  return { t: struct, properties: properties }
+}
+
 // Scopes
 function createModule(name: string) : llvm.Module {
   let m = new llvm.Module(name, context)
@@ -89,8 +99,9 @@ function createModule(name: string) : llvm.Module {
   return m
 }
 
+// Functions
 type Main = { mainBlock: llvm.BasicBlock, mainBuilder: llvm.IRBuilder, mainReturnAlloca: llvm.AllocaInst}
-function createMain(llvmModule: llvm.Module) : Main {
+function createMain(llvmModule: llvm.Module, scope: (main: Main) => void ) : Main {
   let intType = llvm.Type.getInt32Ty(context)
   let mainFuncType = llvm.FunctionType.get(intType, false)
   let mainFunc = llvmModule.getOrInsertFunction("main", mainFuncType)
@@ -99,10 +110,15 @@ function createMain(llvmModule: llvm.Module) : Main {
   let mainReturnAlloca = mainBuilder.createAlloca(intType)
 
   mainBuilder.createStore(createConstant(0), mainReturnAlloca)
-  mainBuilder.createRet(mainBuilder.createLoad(mainReturnAlloca))
 
-  return { mainBlock, mainBuilder, mainReturnAlloca }
+  let main = { mainBlock, mainBuilder, mainReturnAlloca }
+  scope(main)
+
+  mainBuilder.createRet(mainBuilder.createLoad(mainReturnAlloca))
+  return main
 }
+
+// TODO : implement createFunction()
 
 // Values
 function createConstant(value: number) : llvm.Value {
@@ -122,7 +138,10 @@ function writeBitcodeToFile(llvmModule: llvm.Module, filePath: string) {
 function test() {
   let m = createModule("test")
 
-  createMain(m)
+  createMain(m, (main: Main) => {
+    let struct = createType([createType([getInt64Type()], "bar"), getFloat64Type()], "foo")
+    main.mainBuilder.createAlloca(struct.t)
+  })
 
   logIR(m)
   writeBitcodeToFile(m, "./lol.bit")

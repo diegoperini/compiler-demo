@@ -2,6 +2,7 @@ fs = require 'fs'
 
 Array::last = () -> @[@length - 1]
 Array::diff = (a) -> @filter (i) -> (a.indexOf i) < 0
+Array::flatMap = (f) -> @.reduce ((acc, cur) -> [acc..., f(cur)]), []
 
 String::isAccessibleFile = () ->
   accessible = true
