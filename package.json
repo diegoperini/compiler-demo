@@ -6,6 +6,7 @@
     "url": "https://github.com/diegoperini/compiler-demo.git"
   },
   "dependencies": {
+    "@types/node": "^10.12.0",
     "coffeescript": "^2.3.2",
     "llvm-node": "^2.1.0",
     "lodash": "^4.17.11",

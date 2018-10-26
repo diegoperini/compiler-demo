@@ -1,7 +1,18 @@
 (require 'ts-node').register()
-parser = require './parser'
 fs = require 'fs'
-require './llvm-demo'
+pathBasename = (require 'path').basename
+parser = require './parser'
+generator = require './generator'
+
+console.log generator
+
+ast2ir = (moduleName, parseTree) ->
+  m = generator.createModule(moduleName)
+
+  # TODO : extract types
+  # TODO : extract functions
+
+  return m: m, error: null
 
 compile = (filePath) ->
   try
@@ -9,25 +20,29 @@ compile = (filePath) ->
 
     if parseTree?
       console.plog parseTree
-      console.log "\nCompiled!"
+      ir = ast2ir (pathBasename filePath), parseTree
+
+      if !ir.error? then console.log "\nCompiled!" else console.error "Compile error, " + error
 
       result =
-        success: true,
-        parserTree: parseTree
+        success: !ir.error?,
+        parseTree: parseTree
+        ir: ir
+
       return result
     else
       console.error "Parse error due to incomplete source file!"
 
       result =
         success: false,
-        parserTree: parseTree
+        parseTree: parseTree
       return result
   catch error
     console.error error
 
     result =
       success: false,
-      parserTree: null
+      parseTree: null
     return result
 
 uncompile = (filePath) -> console.log "Uncompiled!"
