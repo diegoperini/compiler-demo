@@ -9,10 +9,15 @@ parse = (str) ->
   execSync "npm run buildGrammar"
   grammar = require "./grammar"
 
+  t = (new Date).getTime()
+
   parser = new nearley.Parser nearley.Grammar.fromCompiled grammar
   str = str.replace comments.lineComment, (m) -> "\n".repeat (m.match(/\n/g) || []).length
   str = str.replace comments.blockComment, (m) -> "\n".repeat (m.match(/\n/g) || []).length
   parser.feed str
+
+  t = (new Date).getTime() - t
+  console.log "Parse time in ms: " + t.toString()
 
   if parser.results.length > 0
     result =

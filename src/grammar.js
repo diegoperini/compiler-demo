@@ -24,6 +24,14 @@ const lexer = moo.compile({
   comma: /,/,
   equals: /=/,
   doubleQuote: /"/,
+  asterix: /\*/,
+  backslash: /\\/,
+  slash: /\//,
+  plus: /\+/,
+  minus: /-/,
+  lessThan: /</,
+  greaterThan: />/,
+  percent: /%/,
   ualpha: /[A-Z_][a-zA-Z0-9_]*/,
   lalpha: /[a-z_][a-zA-Z0-9_]*/,
   alpha: /[a-zA-Z0-9_]+/,
@@ -93,17 +101,25 @@ var grammar = {
     {"name": "nativeType", "symbols": ["nonArrayNativeType", "nativeType$ebnf$1"], "postprocess":  (d, l, r) => {
           if (exists(d[1])) {
             if ((d[1] > 0 && Number.isInteger(d[1])) || d[1] === "auto") {
-              return { name: d[0].value, tuple: d[0].tuple, array: true, count: d[1]};
+              return { name: d[0].value, tuple: d[0].tuple, func: null, array: true, count: d[1]};
             } else {
               console.error("Illegal array size.");
               return r;
             }
           } else {
-            return { name: d[0].value, tuple: d[0].tuple, array: false, count: null };
+            return { name: d[0].value, tuple: d[0].tuple, func: d[0].func, array: false, count: null };
           }
         } },
     {"name": "nonArrayNativeType", "symbols": ["tuple"], "postprocess": id},
     {"name": "nonArrayNativeType", "symbols": ["nonTupleNativeType"], "postprocess": id},
+    {"name": "nonArrayNativeType", "symbols": ["functionNativeType"], "postprocess": id},
+    {"name": "nonFunctionNativeType", "symbols": ["tuple"], "postprocess": id},
+    {"name": "nonFunctionNativeType", "symbols": ["nonTupleNativeType"], "postprocess": id},
+    {"name": "functionNativeType", "symbols": ["nonFunctionNativeType", "onl", (lexer.has("minus") ? {type: "minus"} : minus), (lexer.has("greaterThan") ? {type: "greaterThan"} : greaterThan), "onl", "nativeType"], "postprocess":  (d) => {
+          let arg = { name: d[0].value, tuple: d[0].tuple, func: null, array: false, count: null }
+          let ret = d[5]
+          return { func: { arg, ret }, value: null, tuple: null };
+        } },
     {"name": "arraySpecifier$ebnf$1", "symbols": ["numberLiteral"], "postprocess": id},
     {"name": "arraySpecifier$ebnf$1", "symbols": [], "postprocess": function(d) {return null;}},
     {"name": "arraySpecifier", "symbols": [(lexer.has("openBrace") ? {type: "openBrace"} : openBrace), "onl", "arraySpecifier$ebnf$1", "onl", (lexer.has("closeBrace") ? {type: "closeBrace"} : closeBrace)], "postprocess":  (d) => {
@@ -115,6 +131,7 @@ var grammar = {
         } },
     {"name": "nonTupleNativeType", "symbols": [(lexer.has("ualpha") ? {type: "ualpha"} : ualpha)], "postprocess":  (d, l, r) => {
           d[0].tuple = null;
+          d[0].func = null;
           switch (d[0].value) {
             case "Int":
               d[0].value = "Int32";
@@ -140,24 +157,36 @@ var grammar = {
             case "String":
             case "Void":
               return d[0];
+            case "Unit":
+              return { tuple: [], func: null, value: null };
             default:
-              return r;
+              return d[0];
           }
         } },
     {"name": "tuple$ebnf$1", "symbols": ["tuplePropertyList"], "postprocess": id},
     {"name": "tuple$ebnf$1", "symbols": [], "postprocess": function(d) {return null;}},
-    {"name": "tuple", "symbols": [(lexer.has("openParan") ? {type: "openParan"} : openParan), "tuple$ebnf$1", "tupleProperty", "onl", (lexer.has("closeParan") ? {type: "closeParan"} : closeParan)], "postprocess": (d) => { return { tuple: [...d[1], d[2]], value: null }; }},
+    {"name": "tuple", "symbols": [(lexer.has("openParan") ? {type: "openParan"} : openParan), "tuple$ebnf$1", "tupleProperty", "onl", (lexer.has("closeParan") ? {type: "closeParan"} : closeParan)], "postprocess": (d) => { return { tuple: [...(exists(d[1]) ? d[1] : []), d[2]], value: null }; }},
     {"name": "tuple", "symbols": [(lexer.has("openParan") ? {type: "openParan"} : openParan), "onl", (lexer.has("closeParan") ? {type: "closeParan"} : closeParan)], "postprocess": () => { return { tuple: [], value: null }; }},
     {"name": "tuplePropertyList$ebnf$1", "symbols": []},
     {"name": "tuplePropertyList$ebnf$1", "symbols": ["tuplePropertyList$ebnf$1", "tuplePropertyList"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "tuplePropertyList", "symbols": ["tupleProperty", "onl", (lexer.has("comma") ? {type: "comma"} : comma), "tuplePropertyList$ebnf$1"], "postprocess": (d) => { return [d[0], ...d[3]]; }},
+    {"name": "tuplePropertyList", "symbols": ["tupleProperty", "onl", (lexer.has("comma") ? {type: "comma"} : comma), "tuplePropertyList$ebnf$1"], "postprocess": (d) => { return [d[0], ...(exists(d[3]) ? d[3] : [])]; }},
     {"name": "tupleProperty", "symbols": ["onl", "name", "onl", (lexer.has("colon") ? {type: "colon"} : colon), "onl", "nativeType"], "postprocess": (d) => { return { declaration: "property", propertyName: d[1], type: d[5], assignment: null }; }},
     {"name": "declaration", "symbols": ["declarationBody", "nl"], "postprocess": id},
     {"name": "declarationBody", "symbols": ["typeDeclaration"], "postprocess": id},
+    {"name": "declarationBody", "symbols": ["functionDeclaration"], "postprocess": id},
     {"name": "declarationBody", "symbols": [(lexer.has("region") ? {type: "region"} : region), "ws", "word"], "postprocess": (d) => { return { region: d[2] }; }},
+    {"name": "functionDeclaration$ebnf$1", "symbols": []},
+    {"name": "functionDeclaration$ebnf$1", "symbols": ["functionDeclaration$ebnf$1", "functionBody"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "functionDeclaration", "symbols": ["name", "onl", "functionNativeType", "onl", (lexer.has("openCurly") ? {type: "openCurly"} : openCurly), "onl", "functionDeclaration$ebnf$1", (lexer.has("closeCurly") ? {type: "closeCurly"} : closeCurly)], "postprocess": (d) => { return { declaration: "func", func: d[2].func, name:d[0], body:d[6] } }},
+    {"name": "functionDeclaration", "symbols": ["name", "onl", "functionNativeType", "onl", (lexer.has("openCurly") ? {type: "openCurly"} : openCurly), "onl", "typeBodyDeclaration", "ows", (lexer.has("closeCurly") ? {type: "closeCurly"} : closeCurly)], "postprocess": (d) => { return { declaration: "func", func: d[2].func, name:d[0], body:[d[6]] } }},
+    {"name": "functionDeclaration", "symbols": ["name", "onl", "functionNativeType", "onl", (lexer.has("openCurly") ? {type: "openCurly"} : openCurly), "onl", "functionBodyDeclaration", "ows", (lexer.has("closeCurly") ? {type: "closeCurly"} : closeCurly)], "postprocess": (d) => { return { declaration: "func", func: d[2].func, name:d[0], body:[d[6]] } }},
+    {"name": "functionBody", "symbols": ["typeBodyDeclaration", "nl"], "postprocess": id},
+    {"name": "functionBody", "symbols": ["functionBodyDeclaration", "nl"], "postprocess": id},
+    {"name": "functionBodyDeclaration", "symbols": ["expression"], "postprocess": id},
     {"name": "typeDeclaration$ebnf$1", "symbols": []},
     {"name": "typeDeclaration$ebnf$1", "symbols": ["typeDeclaration$ebnf$1", "typeBody"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "typeDeclaration", "symbols": ["typeName", "onl", (lexer.has("openCurly") ? {type: "openCurly"} : openCurly), "nl", "typeDeclaration$ebnf$1", (lexer.has("closeCurly") ? {type: "closeCurly"} : closeCurly)], "postprocess": (d) => { return { declaration: "type", name:d[0], body:d[4] } }},
+    {"name": "typeDeclaration", "symbols": ["typeName", "onl", (lexer.has("openCurly") ? {type: "openCurly"} : openCurly), "onl", "typeDeclaration$ebnf$1", (lexer.has("closeCurly") ? {type: "closeCurly"} : closeCurly)], "postprocess": (d) => { return { declaration: "type", name:d[0], body:d[4] } }},
+    {"name": "typeDeclaration", "symbols": ["typeName", "onl", (lexer.has("openCurly") ? {type: "openCurly"} : openCurly), "onl", "typeBodyDeclaration", "ows", (lexer.has("closeCurly") ? {type: "closeCurly"} : closeCurly)], "postprocess": (d) => { return { declaration: "type", name:d[0], body:[d[4]] } }},
     {"name": "typeBody", "symbols": ["typeBodyDeclaration", "nl"], "postprocess": id},
     {"name": "typeBodyDeclaration", "symbols": [(lexer.has("horizontal") ? {type: "horizontal"} : horizontal)], "postprocess": () => { return { layout: "horizontal" }; }},
     {"name": "typeBodyDeclaration", "symbols": [(lexer.has("vertical") ? {type: "vertical"} : vertical)], "postprocess": () => { return { layout: "vertical" }; }},
@@ -174,6 +203,23 @@ var grammar = {
         } },
     {"name": "propertyAssignment", "symbols": ["onl", (lexer.has("equals") ? {type: "equals"} : equals), "onl", "expression"], "postprocess": (d) => { return { operation: d[1].value, expression: d[3] } }},
     {"name": "expression", "symbols": ["literal"], "postprocess": id},
+    {"name": "expression", "symbols": ["identifierOrReservedStatement"], "postprocess": id},
+    {"name": "expression", "symbols": ["funcCall"], "postprocess": id},
+    {"name": "funcCall", "symbols": [(lexer.has("lalpha") ? {type: "lalpha"} : lalpha), "ws", "expression"], "postprocess":  (d, l, r) => {
+          if (d[0].value === 'return' ) {
+            return "return statement with result";
+          } else {
+            return "func call";
+          }
+        } },
+    {"name": "identifierOrReservedStatement", "symbols": [(lexer.has("lalpha") ? {type: "lalpha"} : lalpha)], "postprocess":  (d, l, r) => {
+          switch (d[0].value) {
+            case "return":
+              return "return statement without result";
+            default:
+              return "identifier expression";
+          }
+        } },
     {"name": "literal", "symbols": ["numberLiteral"], "postprocess": id},
     {"name": "literal", "symbols": ["stringLiteral"], "postprocess": id},
     {"name": "literal", "symbols": ["boolLiteral"], "postprocess": id},

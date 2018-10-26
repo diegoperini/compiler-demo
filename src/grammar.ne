@@ -20,6 +20,14 @@ const lexer = moo.compile({
   comma: /,/,
   equals: /=/,
   doubleQuote: /"/,
+  asterix: /\*/,
+  backslash: /\\/,
+  slash: /\//,
+  plus: /\+/,
+  minus: /-/,
+  lessThan: /</,
+  greaterThan: />/,
+  percent: /%/,
   ualpha: /[A-Z_][a-zA-Z0-9_]*/,
   lalpha: /[a-z_][a-zA-Z0-9_]*/,
   alpha: /[a-zA-Z0-9_]+/,
@@ -85,16 +93,24 @@ number -> %number {% id %} | %hex {% id %} | %binary {% id %}
 nativeType -> nonArrayNativeType arraySpecifier:? {% (d, l, r) => {
   if (exists(d[1])) {
     if ((d[1] > 0 && Number.isInteger(d[1])) || d[1] === "auto") {
-      return { name: d[0].value, tuple: d[0].tuple, array: true, count: d[1]};
+      return { name: d[0].value, tuple: d[0].tuple, func: null, array: true, count: d[1]};
     } else {
       console.error("Illegal array size.");
       return r;
     }
   } else {
-    return { name: d[0].value, tuple: d[0].tuple, array: false, count: null };
+    return { name: d[0].value, tuple: d[0].tuple, func: d[0].func, array: false, count: null };
   }
 } %}
-nonArrayNativeType -> tuple {% id %} | nonTupleNativeType {% id %}
+nonArrayNativeType -> tuple {% id %} | nonTupleNativeType {% id %} | functionNativeType {% id %}
+nonFunctionNativeType -> tuple {% id %} | nonTupleNativeType {% id %}
+
+functionNativeType -> nonFunctionNativeType onl %minus %greaterThan onl nativeType {% (d) => {
+  let arg = { name: d[0].value, tuple: d[0].tuple, func: null, array: false, count: null }
+  let ret = d[5]
+  return { func: { arg, ret }, value: null, tuple: null };
+} %}
+
 arraySpecifier -> %openBrace onl numberLiteral:? onl %closeBrace {% (d) => {
   if (exists(d[2])) {
     return d[2].literalValue;
@@ -105,6 +121,7 @@ arraySpecifier -> %openBrace onl numberLiteral:? onl %closeBrace {% (d) => {
 
 nonTupleNativeType -> %ualpha {% (d, l, r) => {
   d[0].tuple = null;
+  d[0].func = null;
   switch (d[0].value) {
     case "Int":
       d[0].value = "Int32";
@@ -130,23 +147,33 @@ nonTupleNativeType -> %ualpha {% (d, l, r) => {
     case "String":
     case "Void":
       return d[0];
+    case "Unit":
+      return { tuple: [], func: null, value: null };
     default:
-      return r;
+      return d[0];
   }
 } %}
 
-tuple -> %openParan tuplePropertyList:? tupleProperty onl %closeParan {% (d) => { return { tuple: [...d[1], d[2]], value: null }; } %}
+tuple -> %openParan tuplePropertyList:? tupleProperty onl %closeParan {% (d) => { return { tuple: [...(exists(d[1]) ? d[1] : []), d[2]], value: null }; } %}
        | %openParan onl %closeParan {% () => { return { tuple: [], value: null }; } %}
-tuplePropertyList -> tupleProperty onl %comma tuplePropertyList:* {% (d) => { return [d[0], ...d[3]]; } %}
+tuplePropertyList -> tupleProperty onl %comma tuplePropertyList:* {% (d) => { return [d[0], ...(exists(d[3]) ? d[3] : [])]; } %}
 tupleProperty -> onl name onl %colon onl nativeType {% (d) => { return { declaration: "property", propertyName: d[1], type: d[5], assignment: null }; } %}
 
 # Declarations
 declaration -> declarationBody nl {% id %}
-
 declarationBody -> typeDeclaration {% id %}
+                 | functionDeclaration {% id %}
                  | %region ws word {% (d) => { return { region: d[2] }; } %}
 
-typeDeclaration -> typeName onl %openCurly nl typeBody:* %closeCurly {% (d) => { return { declaration: "type", name:d[0], body:d[4] } } %}
+functionDeclaration -> name onl functionNativeType onl %openCurly onl functionBody:* %closeCurly {% (d) => { return { declaration: "func", func: d[2].func, name:d[0], body:d[6] } } %}
+                     | name onl functionNativeType onl %openCurly onl typeBodyDeclaration ows %closeCurly {% (d) => { return { declaration: "func", func: d[2].func, name:d[0], body:[d[6]] } } %}
+                     | name onl functionNativeType onl %openCurly onl functionBodyDeclaration ows %closeCurly {% (d) => { return { declaration: "func", func: d[2].func, name:d[0], body:[d[6]] } } %}
+functionBody -> typeBodyDeclaration nl {% id %}
+              | functionBodyDeclaration nl {% id %}
+functionBodyDeclaration -> expression {% id %}
+
+typeDeclaration -> typeName onl %openCurly onl typeBody:* %closeCurly {% (d) => { return { declaration: "type", name:d[0], body:d[4] } } %}
+                 | typeName onl %openCurly onl typeBodyDeclaration ows %closeCurly {% (d) => { return { declaration: "type", name:d[0], body:[d[4]] } } %}
 typeBody -> typeBodyDeclaration nl {% id %}
 typeBodyDeclaration -> %horizontal {% () => { return { layout: "horizontal" }; } %}
                      | %vertical {% () => { return { layout: "vertical" }; } %}
@@ -163,7 +190,32 @@ propertyDeclaration -> name onl %colon onl nativeType propertyAssignment:? {% (d
 propertyAssignment -> onl %equals onl expression {% (d) => { return { operation: d[1].value, expression: d[3] } } %}
 
 # Expression
+# TODO : implement all expressions
 expression -> literal {% id %}
+            | identifierOrReservedStatement {% id %}
+            | funcCall {% id %}
+            # | statement
+            # | expression onl binaryOperation onl expression
+            # | unaryOperation onl expression
+            # | %openParan onl expression onl %closeParan
+            # | %openCurly onl functionBody:* %closeCurly
+
+funcCall -> %lalpha ws expression {% (d, l, r) => {
+  if (d[0].value === 'return' ) {
+    return "return statement with result";
+  } else {
+    return "func call";
+  }
+} %}
+
+identifierOrReservedStatement -> %lalpha {% (d, l, r) => {
+  switch (d[0].value) {
+    case "return":
+      return "return statement without result";
+    default:
+      return "identifier expression";
+  }
+} %}
 
 # Literals
 literal -> numberLiteral {% id %}
