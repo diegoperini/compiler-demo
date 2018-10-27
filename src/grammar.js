@@ -120,9 +120,7 @@ var grammar = {
           let ret = d[5]
           return { func: { arg, ret }, value: null, tuple: null };
         } },
-    {"name": "arraySpecifier$ebnf$1", "symbols": ["numberLiteral"], "postprocess": id},
-    {"name": "arraySpecifier$ebnf$1", "symbols": [], "postprocess": function(d) {return null;}},
-    {"name": "arraySpecifier", "symbols": [(lexer.has("openBrace") ? {type: "openBrace"} : openBrace), "onl", "arraySpecifier$ebnf$1", "onl", (lexer.has("closeBrace") ? {type: "closeBrace"} : closeBrace)], "postprocess":  (d) => {
+    {"name": "arraySpecifier", "symbols": [(lexer.has("openBrace") ? {type: "openBrace"} : openBrace), "onl", "numberLiteral", "onl", (lexer.has("closeBrace") ? {type: "closeBrace"} : closeBrace)], "postprocess":  (d) => {
           if (exists(d[2])) {
             return d[2].literalValue;
           } else {
@@ -145,7 +143,7 @@ var grammar = {
             case "Int8":
             case "Int16":
             case "Int32":
-            case "Int364":
+            case "Int64":
             case "UInt8":
             case "UInt16":
             case "UInt32":

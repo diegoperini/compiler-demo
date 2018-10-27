@@ -14,10 +14,15 @@ parse = (str) ->
   parser = new nearley.Parser nearley.Grammar.fromCompiled grammar
   str = str.replace comments.lineComment, (m) -> "\n".repeat (m.match(/\n/g) || []).length
   str = str.replace comments.blockComment, (m) -> "\n".repeat (m.match(/\n/g) || []).length
+  # console.log "================================================================="
+  # console.log str
+  # console.log "================================================================="
   parser.feed str
 
   t = (new Date).getTime() - t
-  console.log "Parse time in ms: " + t.toString()
+  console.log "Parse Result\n=============="
+  console.log "Success! Parse time in ms: " + t.toString()
+  console.log "=============="
 
   if parser.results.length > 0
     result =

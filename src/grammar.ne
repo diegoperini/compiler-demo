@@ -111,7 +111,9 @@ functionNativeType -> nonFunctionNativeType onl %minus %greaterThan onl nativeTy
   return { func: { arg, ret }, value: null, tuple: null };
 } %}
 
-arraySpecifier -> %openBrace onl numberLiteral:? onl %closeBrace {% (d) => {
+# TODO : allow unspecified sizes
+# arraySpecifier -> %openBrace onl numberLiteral:? onl %closeBrace {% (d) => {
+arraySpecifier -> %openBrace onl numberLiteral onl %closeBrace {% (d) => {
   if (exists(d[2])) {
     return d[2].literalValue;
   } else {
@@ -135,7 +137,7 @@ nonTupleNativeType -> %ualpha {% (d, l, r) => {
     case "Int8":
     case "Int16":
     case "Int32":
-    case "Int364":
+    case "Int64":
     case "UInt8":
     case "UInt16":
     case "UInt32":

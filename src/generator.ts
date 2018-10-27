@@ -30,19 +30,19 @@ export function getInt64Type() : IntT {
 }
 
 let Uint8Type = llvm.Type.getInt8Ty(context)
-export function getUint8Type() : IntT {
+export function getUInt8Type() : IntT {
   return { t: Uint8Type, signed: false }
 }
 let Uint16Type = llvm.Type.getInt16Ty(context)
-export function getUint16Type() : IntT {
+export function getUInt16Type() : IntT {
   return { t: Uint16Type, signed: false }
 }
 let Uint32Type = llvm.Type.getInt32Ty(context)
-export function getUint32Type() : IntT {
+export function getUInt32Type() : IntT {
   return { t: Uint32Type, signed: false }
 }
 let Uint64Type = llvm.Type.getInt64Ty(context)
-export function getUint64Type() : IntT {
+export function getUInt64Type() : IntT {
   return { t: Uint64Type, signed: false }
 }
 
@@ -72,19 +72,20 @@ export function getVoidType() : VoidT {
   return { t: VoidType }
 }
 
-type StringT = { t: llvm.Type, count: number }
+type StringT = { t: llvm.Type }
 let StringType = llvm.Type.getInt8Ty(context)
-export function getStringType(count: number) : StringT {
-  return { t: llvm.ArrayType.get(StringType, count), count: count }
+export function getStringType() : StringT {
+  return { t: llvm.PointerType.get(StringType, 0) }
 }
 
 type TypeT = { t: llvm.Type, properties: TypeT[] } | IntT | FloatT | VoidT | StringT
 export function createType(properties: TypeT[], name?: string) : TypeT {
   let struct = llvm.StructType.create(context, name)
+  let props = [getInt32Type().t, ...properties.map((p) => llvm.PointerType.get(p.t, 0))]
 
-  struct.setBody(properties.map((p) => p.t), false)
+  struct.setBody(props, false)
 
-  return { t: struct, properties: properties }
+  return { t: struct, properties: props }
 }
 
 const Unit = createType([], "Unit")

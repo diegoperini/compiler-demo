@@ -1,4 +1,5 @@
 fs = require 'fs'
+util = require 'util'
 
 Array::last = () -> @[@length - 1]
 Array::diff = (a) -> @filter (i) -> (a.indexOf i) < 0
@@ -15,4 +16,11 @@ String::isAccessibleFile = () ->
 
   return accessible and isFile
 
-console.plog = (l) -> console.log JSON.stringify l, null, 4
+console.plog = (l) ->
+  opt =
+    showHidden: false
+    depth: null
+    colors: true
+    compact: false
+  obj = util.inspect l, opt
+  console.log obj
