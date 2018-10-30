@@ -1,5 +1,6 @@
 import * as llvm from "llvm-node"
 import 'coffeescript/register'
+import * as el from './external-libs'
 import './util'
 
 // Context
@@ -157,11 +158,15 @@ export function writeBitcodeToFile(llvmModule: llvm.Module, filePath: string) {
 function test() {
   let m = createModule("test")
 
-  createMain(m, (main: Main) => {
+  // let printfType = llvm.FunctionType.get(llvm.Type.getInt32Ty(context), [getStringType().t], true)
+  // let printf = m.getOrInsertFunction("printf", printfType)
 
-    createFunction(m, getInt32Type().t, getUnitType(), "testFunc", (func: Function) => {
-      func.builder.createStore(createConstant(42), func.returnAlloca)
-    })
+  createMain(m, (main: Main) => {
+    el.printf("Hello World! %d\n",  [createConstant(123)], context, m, main.mainBuilder)
+
+    // createFunction(m, getInt32Type().t, getUnitType(), "testFunc", (func: Function) => {
+    //   func.builder.createStore(createConstant(42), func.returnAlloca)
+    // })
   })
 
   logIR(m)
@@ -170,10 +175,12 @@ function test() {
   // Bash:
   // =====
   // ts-node src/generator.ts
-  // llc -o lol.asm lol.bit
-  // as lol.asm -o lol.o
-  // clang lol.o  -o lol
+  // llc -o lol.a lol.bit
+  // as lol.a -o lol.o
+  // ld -e _main -macosx_version_min 10.13 -arch x86_64 lol.o -lSystem -o lol
   // otool -tvV lol
+
+  // ts-node src/generator.ts && llc -o lol.a lol.bit && cat lol.a && as lol.a -o lol.o && ld -e _main -macosx_version_min 10.13 -arch x86_64 lol.o -lSystem -o lol && ./lol && otool -tvV lol && rm lol*
 
   // ts-node src/generator.ts
   // llc -filetype=obj -o lol.o lol.bit
@@ -181,4 +188,4 @@ function test() {
   // otool -tvV lol
 }
 
-// test()
+test()
