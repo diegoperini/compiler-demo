@@ -32,6 +32,7 @@ const lexer = moo.compile({
   lessThan: /</,
   greaterThan: />/,
   percent: /%/,
+  dollar: /\$/,
   ualpha: /[A-Z_][a-zA-Z0-9_]*/,
   lalpha: /[a-z_][a-zA-Z0-9_]*/,
   alpha: /[a-zA-Z0-9_]+/,
@@ -194,28 +195,29 @@ var grammar = {
     {"name": "propertyDeclaration$ebnf$1", "symbols": [], "postprocess": function(d) {return null;}},
     {"name": "propertyDeclaration", "symbols": ["name", "onl", (lexer.has("colon") ? {type: "colon"} : colon), "onl", "nativeType", "propertyDeclaration$ebnf$1"], "postprocess":  (d, l, r) => {
           if (exists(d[5])) {
-            return { declaration: "property", propertyName: d[0], type: d[4], assignment: d[5].expression };
+            return { declaration: "property", propertyName: d[0], type: d[4], expression: d[5].expression };
           } else {
-            return { declaration: "property", propertyName: d[0], type: d[4], assignment: null };
+            return { declaration: "property", propertyName: d[0], type: d[4], expression: null };
           }
         } },
     {"name": "propertyAssignment", "symbols": ["onl", (lexer.has("equals") ? {type: "equals"} : equals), "onl", "expression"], "postprocess": (d) => { return { operation: d[1].value, expression: d[3] } }},
-    {"name": "expression", "symbols": ["literal"], "postprocess": id},
+    {"name": "expression", "symbols": ["literal"], "postprocess": (d) => { return { expression: "literal", litrealExpression: d[0] } }},
     {"name": "expression", "symbols": ["identifierOrReservedStatement"], "postprocess": id},
     {"name": "expression", "symbols": ["funcCall"], "postprocess": id},
     {"name": "funcCall", "symbols": [(lexer.has("lalpha") ? {type: "lalpha"} : lalpha), "ws", "expression"], "postprocess":  (d, l, r) => {
           if (d[0].value === 'return' ) {
-            return "return statement with result";
+            return { expression: "return", returnExpression: d[2] };
           } else {
-            return "func call";
+            return { expression: "call", callExpression: d[2] };
           }
         } },
-    {"name": "identifierOrReservedStatement", "symbols": [(lexer.has("lalpha") ? {type: "lalpha"} : lalpha)], "postprocess":  (d, l, r) => {
+    {"name": "identifierOrReservedStatement", "symbols": [(lexer.has("dollar") ? {type: "dollar"} : dollar)], "postprocess": (d) => { return { expression: "identifier", identifierExpression: d[0] } }},
+    {"name": "identifierOrReservedStatement", "symbols": [(lexer.has("lalpha") ? {type: "lalpha"} : lalpha)], "postprocess":  (d) => {
           switch (d[0].value) {
             case "return":
-              return "return statement without result";
+              return { expression: "return" };
             default:
-              return "identifier expression";
+              return { expression: "identifier", identifierExpression: d[0] };
           }
         } },
     {"name": "literal", "symbols": ["numberLiteral"], "postprocess": id},

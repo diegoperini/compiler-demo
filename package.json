@@ -21,7 +21,7 @@
   "scripts": {
     "buildGrammar": "nearleyc src/grammar.ne -o src/grammar.js",
     "build": "npm run buildGrammar",
-    "execute": "coffee src/index.coffee",
+    "execute": "coffee -M src/index.coffee",
     "buildAndExecute": "npm run build && npm run execute",
     "buildAndExecuteExample": "npm run build && npm run execute example",
     "fixLlvmPath": "npm config set cmake_LLVM_DIR $(/opt/local/bin/llvm-config --cmakedir)"

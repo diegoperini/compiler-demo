@@ -128,8 +128,8 @@ export function createMain(llvmModule: llvm.Module, scope: (main: Main) => void)
 type Function = { block: llvm.BasicBlock, builder: llvm.IRBuilder, returnAlloca: llvm.AllocaInst }
 export function createFunction(llvmModule: llvm.Module, returnType: llvm.Type, params: TypeT, name: string, scope: (func: Function) => void) : Function {
   let funcType = llvm.FunctionType.get(returnType, [params.t], false)
-  let func = llvmModule.getOrInsertFunction(name, funcType)
-  let block = llvm.BasicBlock.create(context, "", func as llvm.Function)
+  let func = llvm.Function.create(funcType, llvm.LinkageTypes.PrivateLinkage, name, llvmModule)
+  let block = llvm.BasicBlock.create(context, "", func)
   let builder = new llvm.IRBuilder(block)
   let returnAlloca = builder.createAlloca(returnType)
 
@@ -162,7 +162,7 @@ function test() {
   // let printf = m.getOrInsertFunction("printf", printfType)
 
   createMain(m, (main: Main) => {
-    el.printf("Hello World! %d\n",  [createConstant(123)], context, m, main.mainBuilder)
+    el.printf("Hello öç.pğüşiı😄 😅 😆 😉 World! %d\n",  [createConstant(123)], context, m, main.mainBuilder)
 
     // createFunction(m, getInt32Type().t, getUnitType(), "testFunc", (func: Function) => {
     //   func.builder.createStore(createConstant(42), func.returnAlloca)
@@ -188,4 +188,4 @@ function test() {
   // otool -tvV lol
 }
 
-test()
+// test()

@@ -4,24 +4,49 @@ pathBasename = (require 'path').basename
 parser = require './parser'
 generator = require './generator'
 
-# TODO : remove this
-console.log generator
-
 # Utilities
-extractProperties = (parseTree) ->
+searchTypeToRoot = (types, searchedTypeName, location) ->
+  route = location.split '.'
+  route.reverse()
+
+  currentLocation = searchedTypeName
+  found = null
+  # console.log route
+  route.forEach (r) ->
+    # console.log "!!!!!!!!!!!!!!!!!!!!!  " + currentLocation
+    if types[currentLocation]? and !found?
+      found = types[currentLocation]
+    else if !found?
+      currentLocation = r + "." + currentLocation
+
+  return found
+
+extractTypeProperties = (parseTree) ->
   if !parseTree?
     return []
 
   switch parseTree.declaration
     when "type"
-      return extractProperties parseTree.body
+      return extractTypeProperties parseTree.body
     when "property"
       return [parseTree]
+    when "func"
+      return []
     else
       if Array.isArray parseTree
-        return parseTree.map extractProperties
+        return parseTree.map extractTypeProperties
       else
         return []
+
+extractFunctionProperties = (parseTree) ->
+  if !parseTree?
+    return []
+
+  switch parseTree.declaration
+    when "func"
+      return parseTree.body.filter (d) -> d.declaration is 'property'
+    else
+      return []
 
 flattenPropertyTable = (props) ->
   propertyTable = {}
@@ -35,6 +60,41 @@ flattenPropertyTable = (props) ->
   add props
 
   return propertyTable
+
+extractFunctions = (parseTree, parentName) ->
+  # TODO : extract unnamed functions
+  switch parseTree.declaration
+    when "func"
+      if parentName isnt ""
+        parseTree.fullname = parentName + "." + parseTree.name
+      else
+        parseTree.fullname = parseTree.name
+      return [parseTree, (extractFunctions parseTree.body, parseTree.fullname)...]
+    when "type"
+      if parentName isnt ""
+        parseTree.fullname = parentName + "." + parseTree.name
+      else
+        parseTree.fullname = parseTree.name
+      parseTree.properties = {}
+      return extractFunctions parseTree.body, parseTree.fullname
+    else
+      if Array.isArray parseTree
+        return (parseTree.map (t) -> extractFunctions t, parentName)
+      else
+        return []
+
+flattenFuncTable = (funcs) ->
+  funcTable = {}
+
+  add = (t) ->
+    if Array.isArray t
+      t.forEach add
+    else if t.fullname?
+      funcTable[t.fullname] = t
+
+  add funcs
+
+  return funcTable
 
 extractTypes = (parseTree, parentName) ->
   # TODO : extract unnamed types
@@ -139,10 +199,20 @@ missingIRExists = (types, functions) ->
         return true
     return propIRExists and type.IR
 
-  # TODO : implemented below line
-  missingIrInFunctions = false
+  missingIrInFunctions = !(Object.keys functions).every (k) ->
+    func = functions[k]
+    # console.log "in: " + k
+    propIRExists = (Object.keys func.properties).every (pk) ->
+      # console.log "  in: " + pk
+      prop = func.properties[pk]
+      # console.log prop
+      if prop?
+        return prop.IR?
+      else
+        return true
+    return propIRExists and func.IR
 
-  return missingIrInTypes + missingIrInFunctions
+  return missingIrInTypes or missingIrInFunctions
 
 # Main IR generation
 ast2ir = (moduleName, parseTree) ->
@@ -150,16 +220,17 @@ ast2ir = (moduleName, parseTree) ->
 
   # Generate IR for main function
   generator.createMain m, (main) ->
-    # Extract types
-    types = flattenTypeTable extractTypes parseTree.declarations, ""
-
-    # TODO : Extract functions
-    functions = {}
+    # Extract types and functions
+    types = flattenTypeTable extractTypes parseTree.declarations, "main."
+    functions = flattenFuncTable extractFunctions parseTree.declarations, "main"
 
     # Extract properties
     (Object.keys types).forEach (k) ->
       type = types[k]
-      type.properties = flattenPropertyTable extractProperties type
+      type.properties = flattenPropertyTable extractTypeProperties type
+    (Object.keys functions).forEach (k) ->
+      func = functions[k]
+      func.properties = flattenPropertyTable extractFunctionProperties func
 
     # Try to generate IR for everything
     tryCount = 0
@@ -195,15 +266,54 @@ ast2ir = (moduleName, parseTree) ->
       (Object.keys functions).forEach (k) ->
         func = functions[k]
 
-        # TODO : generate func IR
-        if type.IR? then return
-        type.IR = "TODO"
+        if func.IR? then return
 
-    console.log "Type Table\n=============="
-    console.plog types
-    console.log "=============="
+        foundArg = searchTypeToRoot types, func.func.arg.name, func.fullname
+        foundRet = searchTypeToRoot types, func.func.ret.name, func.fullname
+        console.plog func
+        if !foundRet? or !foundArg?
+          console.log func.fullname + " function argument or return type is invalid."
+          console.log foundArg
+          console.log foundRet
+          func.IR = "TODO"
+          (Object.keys func.properties).forEach (pk) ->
+            prop = func.properties[pk]
+            prop.IR = "TODO"
+          return
 
+        func.IR = generator.createFunction m, foundRet.IR.t, foundArg.IR, func.fullname, (f) ->
+          # Generate IR for func properties
+          (Object.keys func.properties).forEach (pk) ->
+            prop = func.properties[pk]
+
+            # Gnerate property IR
+            if prop.IR? then return
+
+            console.log "Searching... " + prop.type.name + " in " + func.fullname
+            found = searchTypeToRoot types, prop.type.name, func.fullname
+            if (found)
+              console.plog found
+              prop.IR = f.builder.createAlloca(found.IR.t, generator.createConstant(2), prop.propertyName)
+            else
+              console.log func.fullname + "." + prop.propertyName + " function property type is invalid."
+              prop.IR = "TODO"
+
+    # console.log "\n==================="
+    # console.log "Type Table"
+    # console.plog types
+    # console.log "===================\n"
+
+    # console.log "\n==================="
+    # console.log "Function Table"
+    # console.log "==================="
+    # console.plog functions
+    # console.log "===================\n"
+
+  console.log "\n==================="
+  console.log "Bitcode"
+  console.log "==================="
   generator.logIR m
+  console.log "===================\n"
 
   return m: m, error: null
 
@@ -212,12 +322,23 @@ compile = (filePath) ->
     parseTree = parser.parse fs.readFileSync filePath, "utf8"
 
     if parseTree?
-      console.log "Type Table\n=============="
-      console.plog parseTree
-      console.log "=============="
-      ir = ast2ir (pathBasename filePath), parseTree.tree
+      # console.log "\n==================="
+      # console.log "AST"
+      # console.log "==================="
+      # console.plog parseTree
+      # console.log "===================\n"
 
-      if !ir.error? then console.log "\nCompiled!" else console.error "Compile error, " + error
+      t = (new Date).getTime()
+      ir = ast2ir (pathBasename filePath), parseTree.tree
+      t = (new Date).getTime() - t
+      console.log "\n==================="
+      console.log "ast2ir Result"
+      if !ir.error?
+        console.log "Success!"
+        console.log "Success! IR generation time in ms: " + t.toString()
+      else
+        console.error "Compile error, " + error
+      console.log "===================\n"
 
       result =
         success: !ir.error?,

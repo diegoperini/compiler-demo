@@ -28,6 +28,7 @@ const lexer = moo.compile({
   lessThan: /</,
   greaterThan: />/,
   percent: /%/,
+  dollar: /\$/,
   ualpha: /[A-Z_][a-zA-Z0-9_]*/,
   lalpha: /[a-z_][a-zA-Z0-9_]*/,
   alpha: /[a-zA-Z0-9_]+/,
@@ -184,16 +185,16 @@ typeBodyDeclaration -> %horizontal {% () => { return { layout: "horizontal" }; }
 
 propertyDeclaration -> name onl %colon onl nativeType propertyAssignment:? {% (d, l, r) => {
   if (exists(d[5])) {
-    return { declaration: "property", propertyName: d[0], type: d[4], assignment: d[5].expression };
+    return { declaration: "property", propertyName: d[0], type: d[4], expression: d[5].expression };
   } else {
-    return { declaration: "property", propertyName: d[0], type: d[4], assignment: null };
+    return { declaration: "property", propertyName: d[0], type: d[4], expression: null };
   }
 } %}
 propertyAssignment -> onl %equals onl expression {% (d) => { return { operation: d[1].value, expression: d[3] } } %}
 
 # Expression
 # TODO : implement all expressions
-expression -> literal {% id %}
+expression -> literal {% (d) => { return { expression: "literal", litrealExpression: d[0] } } %}
             | identifierOrReservedStatement {% id %}
             | funcCall {% id %}
             # | statement
@@ -204,20 +205,21 @@ expression -> literal {% id %}
 
 funcCall -> %lalpha ws expression {% (d, l, r) => {
   if (d[0].value === 'return' ) {
-    return "return statement with result";
+    return { expression: "return", returnExpression: d[2] };
   } else {
-    return "func call";
+    return { expression: "call", callExpression: d[2] };
   }
 } %}
 
-identifierOrReservedStatement -> %lalpha {% (d, l, r) => {
-  switch (d[0].value) {
-    case "return":
-      return "return statement without result";
-    default:
-      return "identifier expression";
-  }
-} %}
+identifierOrReservedStatement -> %dollar {% (d) => { return { expression: "identifier", identifierExpression: d[0] } }%}
+                               | %lalpha {% (d) => {
+                                  switch (d[0].value) {
+                                    case "return":
+                                      return { expression: "return" };
+                                    default:
+                                      return { expression: "identifier", identifierExpression: d[0] };
+                                  }
+                                } %}
 
 # Literals
 literal -> numberLiteral {% id %}
