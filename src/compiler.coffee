@@ -3,6 +3,8 @@ fs = require 'fs'
 pathBasename = (require 'path').basename
 parser = require './parser'
 generator = require './generator'
+errorStore = require "./error-store"
+colors = require 'colors'
 
 # Utilities
 searchTypeToRoot = (types, searchedTypeName, location) ->
@@ -215,7 +217,7 @@ missingIRExists = (types, functions) ->
   return missingIrInTypes or missingIrInFunctions
 
 # Main IR generation
-ast2ir = (moduleName, parseTree) ->
+ast2ir = (moduleName, parseTree, errors) ->
   m = generator.createModule(moduleName)
 
   # Generate IR for main function
@@ -236,11 +238,12 @@ ast2ir = (moduleName, parseTree) ->
     tryCount = 0
     while missingIRExists types, functions
       tryCount += 1
-      console.log "Trying to generate missing IR for everything, try count: " + tryCount.toString()
+      # console.log "Trying to generate missing IR for everything, try count: " + tryCount.toString()
 
       # Generate IR for types
       (Object.keys types).forEach (k) ->
         type = types[k]
+        if type.IR? then return
 
         # Generate IR for type properties
         (Object.keys type.properties).forEach (pk) ->
@@ -255,7 +258,6 @@ ast2ir = (moduleName, parseTree) ->
           prop.IR = "TODO"
 
         # TODO : generate type IR
-        if type.IR? then return
         type.IR = "TODO"
 
         # type.IR = generator.createType [], type.fullname
@@ -265,79 +267,84 @@ ast2ir = (moduleName, parseTree) ->
       # Generate IR for functions
       (Object.keys functions).forEach (k) ->
         func = functions[k]
-
         if func.IR? then return
 
         foundArg = searchTypeToRoot types, func.func.arg.name, func.fullname
         foundRet = searchTypeToRoot types, func.func.ret.name, func.fullname
-        console.plog func
-        if !foundRet? or !foundArg?
-          console.log func.fullname + " function argument or return type is invalid."
-          console.log foundArg
-          console.log foundRet
-          func.IR = "TODO"
-          (Object.keys func.properties).forEach (pk) ->
-            prop = func.properties[pk]
+
+        if !foundArg?
+          errors.storeSemanticError func.func.arg.name.red + " is not a valid argument type. Found in function " + ((func.fullname.split(".").slice 1).join ".").cyan, func.func.arg.token
+        if !foundRet?
+          errors.storeSemanticError func.func.ret.name.red + " is not a valid return type. Found in function " + ((func.fullname.split(".").slice 1).join ".").cyan, func.func.ret.token
+
+        (Object.keys func.properties).forEach (pk) ->
+          prop = func.properties[pk]
+
+          # console.log "Searching... " + prop.type.name + " in " + func.fullname
+          prop.found = searchTypeToRoot types, prop.type.name, func.fullname
+          if !prop.found
+            errors.storeSemanticError prop.type.name.red + " is not a proper type. Found in function " + (((func.fullname.split(".").slice 1).join ".") + "." + prop.propertyName).cyan, prop.token.token
             prop.IR = "TODO"
+
+        if !foundRet? or !foundArg?
+          func.IR = "TODO"
           return
 
         func.IR = generator.createFunction m, foundRet.IR.t, foundArg.IR, func.fullname, (f) ->
           # Generate IR for func properties
           (Object.keys func.properties).forEach (pk) ->
             prop = func.properties[pk]
-
-            # Gnerate property IR
             if prop.IR? then return
 
-            console.log "Searching... " + prop.type.name + " in " + func.fullname
-            found = searchTypeToRoot types, prop.type.name, func.fullname
-            if (found)
-              console.plog found
+            # Gnerate property IR
+            if (prop.found)
               prop.IR = f.builder.createAlloca(found.IR.t, generator.createConstant(2), prop.propertyName)
-            else
-              console.log func.fullname + "." + prop.propertyName + " function property type is invalid."
-              prop.IR = "TODO"
 
-    # console.log "\n==================="
-    # console.log "Type Table"
-    # console.plog types
-    # console.log "===================\n"
+  # console.log "\n==================="
+  # console.log "Type Table"
+  # console.plog types
+  # console.log "===================\n"
 
-    # console.log "\n==================="
-    # console.log "Function Table"
-    # console.log "==================="
-    # console.plog functions
-    # console.log "===================\n"
-
-  console.log "\n==================="
-  console.log "Bitcode"
-  console.log "==================="
-  generator.logIR m
-  console.log "===================\n"
+  # console.log "\n==================="
+  # console.log "Function Table"
+  # console.log "==================="
+  # console.plog functions
+  # console.log "===================\n"
 
   return m: m, error: null
 
 compile = (filePath) ->
+  errors = errorStore.createErrorStore()
+  parseAttempted = false
   try
-    parseTree = parser.parse fs.readFileSync filePath, "utf8"
+    sourceFileContents = fs.readFileSync filePath, "utf8"
+    errors.storeSourceFileContents sourceFileContents
+    parseTree = parser.parse sourceFileContents
+    parseAttempted = true
 
     if parseTree?
-      # console.log "\n==================="
-      # console.log "AST"
-      # console.log "==================="
-      # console.plog parseTree
-      # console.log "===================\n"
+      console.log "\n==================="
+      console.log "AST"
+      console.log ""
+      console.plog parseTree
+      console.log "===================\n"
 
       t = (new Date).getTime()
-      ir = ast2ir (pathBasename filePath), parseTree.tree
+      ir = ast2ir (pathBasename filePath), parseTree.tree, errors
       t = (new Date).getTime() - t
       console.log "\n==================="
       console.log "ast2ir Result"
-      if !ir.error?
+      if errors.success()
         console.log "Success!"
-        console.log "Success! IR generation time in ms: " + t.toString()
+        console.log "Compiled in " + t.toString() + " miliseconds."
       else
-        console.error "Compile error, " + error
+        errors.printErrors()
+      console.log "===================\n"
+
+      console.log "\n==================="
+      console.log "IR"
+      console.log ""
+      generator.logIR ir.m
       console.log "===================\n"
 
       result =
@@ -347,14 +354,20 @@ compile = (filePath) ->
 
       return result
     else
-      console.error "Parse error due to incomplete source file!"
+      errors.storeParseError ("Incomplete module file " + (pathBasename filePath))
+      errors.printErrors()
 
       result =
         success: false,
         parseTree: parseTree
       return result
   catch error
-    console.error error
+    if error.message.indexOf "invalid syntax at line" > -1
+      errors.storeParseError ("Invalid character in module " + (pathBasename filePath)), error.token, error
+      errors.printErrors()
+    else
+      console.error error
+
 
     result =
       success: false,

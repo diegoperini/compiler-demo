@@ -94,20 +94,20 @@ number -> %number {% id %} | %hex {% id %} | %binary {% id %}
 nativeType -> nonArrayNativeType arraySpecifier:? {% (d, l, r) => {
   if (exists(d[1])) {
     if ((d[1] > 0 && Number.isInteger(d[1])) || d[1] === "auto") {
-      return { name: d[0].value, tuple: d[0].tuple, func: null, array: true, count: d[1]};
+      return { name: d[0].value, tuple: d[0].tuple, func: null, array: true, count: d[1], token: d[0]};
     } else {
       console.error("Illegal array size.");
       return r;
     }
   } else {
-    return { name: d[0].value, tuple: d[0].tuple, func: d[0].func, array: false, count: null };
+    return { name: d[0].value, tuple: d[0].tuple, func: d[0].func, array: false, count: null, token: d[0] };
   }
 } %}
 nonArrayNativeType -> tuple {% id %} | nonTupleNativeType {% id %} | functionNativeType {% id %}
 nonFunctionNativeType -> tuple {% id %} | nonTupleNativeType {% id %}
 
 functionNativeType -> nonFunctionNativeType onl %minus %greaterThan onl nativeType {% (d) => {
-  let arg = { name: d[0].value, tuple: d[0].tuple, func: null, array: false, count: null }
+  let arg = { name: d[0].value, tuple: d[0].tuple, func: null, array: false, count: null, token: d[0] }
   let ret = d[5]
   return { func: { arg, ret }, value: null, tuple: null };
 } %}
@@ -160,7 +160,7 @@ nonTupleNativeType -> %ualpha {% (d, l, r) => {
 tuple -> %openParan tuplePropertyList:? tupleProperty onl %closeParan {% (d) => { return { tuple: [...(exists(d[1]) ? d[1] : []), d[2]], value: null }; } %}
        | %openParan onl %closeParan {% () => { return { tuple: [], value: null }; } %}
 tuplePropertyList -> tupleProperty onl %comma tuplePropertyList:* {% (d) => { return [d[0], ...(exists(d[3]) ? d[3] : [])]; } %}
-tupleProperty -> onl name onl %colon onl nativeType {% (d) => { return { declaration: "property", propertyName: d[1], type: d[5], assignment: null }; } %}
+tupleProperty -> onl name onl %colon onl nativeType {% (d) => { return { declaration: "property", propertyName: d[1], type: d[5], assignment: null, token: d[5] }; } %}
 
 # Declarations
 declaration -> declarationBody nl {% id %}
@@ -185,9 +185,9 @@ typeBodyDeclaration -> %horizontal {% () => { return { layout: "horizontal" }; }
 
 propertyDeclaration -> name onl %colon onl nativeType propertyAssignment:? {% (d, l, r) => {
   if (exists(d[5])) {
-    return { declaration: "property", propertyName: d[0], type: d[4], expression: d[5].expression };
+    return { declaration: "property", propertyName: d[0], type: d[4], expression: d[5].expression, token: d[4] };
   } else {
-    return { declaration: "property", propertyName: d[0], type: d[4], expression: null };
+    return { declaration: "property", propertyName: d[0], type: d[4], expression: null, token: d[4] };
   }
 } %}
 propertyAssignment -> onl %equals onl expression {% (d) => { return { operation: d[1].value, expression: d[3] } } %}

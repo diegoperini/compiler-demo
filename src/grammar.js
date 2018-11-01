@@ -102,13 +102,13 @@ var grammar = {
     {"name": "nativeType", "symbols": ["nonArrayNativeType", "nativeType$ebnf$1"], "postprocess":  (d, l, r) => {
           if (exists(d[1])) {
             if ((d[1] > 0 && Number.isInteger(d[1])) || d[1] === "auto") {
-              return { name: d[0].value, tuple: d[0].tuple, func: null, array: true, count: d[1]};
+              return { name: d[0].value, tuple: d[0].tuple, func: null, array: true, count: d[1], token: d[0]};
             } else {
               console.error("Illegal array size.");
               return r;
             }
           } else {
-            return { name: d[0].value, tuple: d[0].tuple, func: d[0].func, array: false, count: null };
+            return { name: d[0].value, tuple: d[0].tuple, func: d[0].func, array: false, count: null, token: d[0] };
           }
         } },
     {"name": "nonArrayNativeType", "symbols": ["tuple"], "postprocess": id},
@@ -117,7 +117,7 @@ var grammar = {
     {"name": "nonFunctionNativeType", "symbols": ["tuple"], "postprocess": id},
     {"name": "nonFunctionNativeType", "symbols": ["nonTupleNativeType"], "postprocess": id},
     {"name": "functionNativeType", "symbols": ["nonFunctionNativeType", "onl", (lexer.has("minus") ? {type: "minus"} : minus), (lexer.has("greaterThan") ? {type: "greaterThan"} : greaterThan), "onl", "nativeType"], "postprocess":  (d) => {
-          let arg = { name: d[0].value, tuple: d[0].tuple, func: null, array: false, count: null }
+          let arg = { name: d[0].value, tuple: d[0].tuple, func: null, array: false, count: null, token: d[0] }
           let ret = d[5]
           return { func: { arg, ret }, value: null, tuple: null };
         } },
@@ -169,7 +169,7 @@ var grammar = {
     {"name": "tuplePropertyList$ebnf$1", "symbols": []},
     {"name": "tuplePropertyList$ebnf$1", "symbols": ["tuplePropertyList$ebnf$1", "tuplePropertyList"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
     {"name": "tuplePropertyList", "symbols": ["tupleProperty", "onl", (lexer.has("comma") ? {type: "comma"} : comma), "tuplePropertyList$ebnf$1"], "postprocess": (d) => { return [d[0], ...(exists(d[3]) ? d[3] : [])]; }},
-    {"name": "tupleProperty", "symbols": ["onl", "name", "onl", (lexer.has("colon") ? {type: "colon"} : colon), "onl", "nativeType"], "postprocess": (d) => { return { declaration: "property", propertyName: d[1], type: d[5], assignment: null }; }},
+    {"name": "tupleProperty", "symbols": ["onl", "name", "onl", (lexer.has("colon") ? {type: "colon"} : colon), "onl", "nativeType"], "postprocess": (d) => { return { declaration: "property", propertyName: d[1], type: d[5], assignment: null, token: d[5] }; }},
     {"name": "declaration", "symbols": ["declarationBody", "nl"], "postprocess": id},
     {"name": "declarationBody", "symbols": ["typeDeclaration"], "postprocess": id},
     {"name": "declarationBody", "symbols": ["functionDeclaration"], "postprocess": id},
@@ -195,9 +195,9 @@ var grammar = {
     {"name": "propertyDeclaration$ebnf$1", "symbols": [], "postprocess": function(d) {return null;}},
     {"name": "propertyDeclaration", "symbols": ["name", "onl", (lexer.has("colon") ? {type: "colon"} : colon), "onl", "nativeType", "propertyDeclaration$ebnf$1"], "postprocess":  (d, l, r) => {
           if (exists(d[5])) {
-            return { declaration: "property", propertyName: d[0], type: d[4], expression: d[5].expression };
+            return { declaration: "property", propertyName: d[0], type: d[4], expression: d[5].expression, token: d[4] };
           } else {
-            return { declaration: "property", propertyName: d[0], type: d[4], expression: null };
+            return { declaration: "property", propertyName: d[0], type: d[4], expression: null, token: d[4] };
           }
         } },
     {"name": "propertyAssignment", "symbols": ["onl", (lexer.has("equals") ? {type: "equals"} : equals), "onl", "expression"], "postprocess": (d) => { return { operation: d[1].value, expression: d[3] } }},

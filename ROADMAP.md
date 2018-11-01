@@ -29,4 +29,4 @@
 * Type bodies
 
 ## Compiler TODO List
-* Semantic error reporting
+* Error reporting

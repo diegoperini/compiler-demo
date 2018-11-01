@@ -49,13 +49,13 @@ if process.argv.length is 3
 
         # Compile a single file with a given path
         compileSingleFile = (f) ->
-          console.log "Recompiling " + f
+          console.log "Recompiling " + f + "\n"
           compiler.compile f
 
         # Uncompile a single file with a given path
         uncompileSingleFile = (f) ->
           context.watchedFiles[f].watcher.close()
-          console.log "Uncompiling " + f
+          console.log "Uncompiling " + f + "\n"
           compiler.uncompile f
           delete context.watchedFiles[f]
 

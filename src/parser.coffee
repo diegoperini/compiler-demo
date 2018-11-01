@@ -20,10 +20,8 @@ parse = (str) ->
   parser.feed str
 
   t = (new Date).getTime() - t
-  console.log "\n==================="
-  console.log "Success!"
-  console.log "Parse time in ms: " + t.toString()
-  console.log "===================\n"
+
+  console.log "Parsed in " + t.toString() + " miliseconds."
 
   if parser.results.length > 0
     result =
