@@ -55,7 +55,7 @@ createErrorStore = () ->
                 console.error (error.token.line - 2).toString().gray + "\t" + @sourceFileLineContents[error.token.line - 2].green
               if error.token.line - 1 >= 0
                 console.error (error.token.line - 1).toString().gray + "\t" + @sourceFileLineContents[error.token.line - 1].red
-                console.error (" ".repeat (error.token.line - 1).toString().length) + "\t" + (" ".repeat error.token.col) + "^"
+                console.error (" ".repeat (error.token.line - 1).toString().length) + "\t" + (" ".repeat error.token.col - 1) + "^"
                 if error.token.line >= 0
                   console.error (error.token.line).toString().gray + "\t" + @sourceFileLineContents[error.token.line].green
             console.error "---"
@@ -72,7 +72,7 @@ createErrorStore = () ->
                 console.error (error.token.line - 2).toString().gray + "\t" + @sourceFileLineContents[error.token.line - 2].green
               if error.token.line - 1 >= 0
                 console.error (error.token.line - 1).toString().gray + "\t" + @sourceFileLineContents[error.token.line - 1].red
-                console.error (" ".repeat (error.token.line - 1).toString().length) + "\t" + (" ".repeat error.token.col) + "^"
+                console.error (" ".repeat (error.token.line - 1).toString().length) + "\t" + (" ".repeat error.token.col - 1) + "^"
                 if error.token.line >= 0
                   console.error (error.token.line).toString().gray + "\t" + @sourceFileLineContents[error.token.line].green
             console.error "---"

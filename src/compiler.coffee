@@ -273,9 +273,9 @@ ast2ir = (moduleName, parseTree, errors) ->
         foundArg = searchTypeToRoot types, func.func.arg.name, func.fullname
         foundRet = searchTypeToRoot types, func.func.ret.name, func.fullname
         if !foundArg?
-          errors.storeSemanticError func.func.arg.name.red + " is not a valid argument type. Found in function " + ((func.fullname.split(".").slice 1).join ".").cyan, func.func.arg.token
+          errors.storeSemanticError func.func.arg.name.red + " is not a valid argument type. Found in function " + ((func.fullname.split(".").slice 1).join ".").cyan + " in module " + moduleName.yellow, func.func.arg.token
         if !foundRet?
-          errors.storeSemanticError func.func.ret.name.red + " is not a valid return type. Found in function " + ((func.fullname.split(".").slice 1).join ".").cyan, func.func.ret.token
+          errors.storeSemanticError func.func.ret.name.red + " is not a valid return type. Found in function " + ((func.fullname.split(".").slice 1).join ".").cyan + " in module " + moduleName.yellow, func.func.ret.token
 
         # Check if property types exist in type table
         (Object.keys func.properties).forEach (pk) ->
@@ -283,9 +283,10 @@ ast2ir = (moduleName, parseTree, errors) ->
 
           # console.log "Searching... " + prop.type.name + " in " + func.fullname
           prop.found = searchTypeToRoot types, prop.type.name, func.fullname
-          if !prop.found
-            errors.storeSemanticError prop.type.name.red + " is not a proper type. Found in function " + (((func.fullname.split(".").slice 1).join ".") + "." + prop.propertyName).cyan, prop.token.token
-            prop.IR = "TODO"
+          prop.IR = "TODO"
+          if !prop.found?
+            errors.storeSemanticError prop.type.name.red + " is not a proper type. Found in function " + (((func.fullname.split(".").slice 1).join ".") + "." + prop.propertyName).cyan + " in module " + moduleName.yellow, prop.token.token
+
 
         # Do not generate IR if the function is malformed
         if !foundRet? or !foundArg?
@@ -300,8 +301,8 @@ ast2ir = (moduleName, parseTree, errors) ->
             if prop.IR? then return
 
             # Generate property IR
-            if (prop.found)
-              prop.IR = f.builder.createAlloca(found.IR.t, generator.createConstant(2), prop.propertyName)
+            if prop.found?
+              prop.IR = f.builder.createAlloca(prop.found.IR.t, generator.createConstant(2), prop.propertyName)
 
   # console.log "\n==================="
   # console.log "Type Table"
@@ -378,8 +379,8 @@ compile = (filePath) ->
     if error.message.indexOf "invalid syntax at line" > -1
       errors.storeParseError ("Invalid character in module " + (pathBasename filePath)), error.token, error
       errors.printErrors()
-    else # This should never if the compiler is not buggy
-      console.error error
+
+    # console.error error
 
     # eport the result to frontend
     result =
