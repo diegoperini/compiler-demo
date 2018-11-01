@@ -269,14 +269,15 @@ ast2ir = (moduleName, parseTree, errors) ->
         func = functions[k]
         if func.IR? then return
 
+        # Check if arg and return types exist in type table
         foundArg = searchTypeToRoot types, func.func.arg.name, func.fullname
         foundRet = searchTypeToRoot types, func.func.ret.name, func.fullname
-
         if !foundArg?
           errors.storeSemanticError func.func.arg.name.red + " is not a valid argument type. Found in function " + ((func.fullname.split(".").slice 1).join ".").cyan, func.func.arg.token
         if !foundRet?
           errors.storeSemanticError func.func.ret.name.red + " is not a valid return type. Found in function " + ((func.fullname.split(".").slice 1).join ".").cyan, func.func.ret.token
 
+        # Check if property types exist in type table
         (Object.keys func.properties).forEach (pk) ->
           prop = func.properties[pk]
 
@@ -286,42 +287,49 @@ ast2ir = (moduleName, parseTree, errors) ->
             errors.storeSemanticError prop.type.name.red + " is not a proper type. Found in function " + (((func.fullname.split(".").slice 1).join ".") + "." + prop.propertyName).cyan, prop.token.token
             prop.IR = "TODO"
 
+        # Do not generate IR if the function is malformed
         if !foundRet? or !foundArg?
           func.IR = "TODO"
           return
 
+        # Generate IR for function body
         func.IR = generator.createFunction m, foundRet.IR.t, foundArg.IR, func.fullname, (f) ->
           # Generate IR for func properties
           (Object.keys func.properties).forEach (pk) ->
             prop = func.properties[pk]
             if prop.IR? then return
 
-            # Gnerate property IR
+            # Generate property IR
             if (prop.found)
               prop.IR = f.builder.createAlloca(found.IR.t, generator.createConstant(2), prop.propertyName)
 
   # console.log "\n==================="
   # console.log "Type Table"
+  # console.log ""
   # console.plog types
   # console.log "===================\n"
 
   # console.log "\n==================="
   # console.log "Function Table"
-  # console.log "==================="
+  # console.log ""
   # console.plog functions
   # console.log "===================\n"
 
   return m: m, error: null
 
 compile = (filePath) ->
+  # Initialize
   errors = errorStore.createErrorStore()
   parseAttempted = false
+
   try
+    # Try parsing
     sourceFileContents = fs.readFileSync filePath, "utf8"
     errors.storeSourceFileContents sourceFileContents
     parseTree = parser.parse sourceFileContents
     parseAttempted = true
 
+    # if parsed
     if parseTree?
       console.log "\n==================="
       console.log "AST"
@@ -329,11 +337,14 @@ compile = (filePath) ->
       console.plog parseTree
       console.log "===================\n"
 
+      # Try generating IR
       t = (new Date).getTime()
       ir = ast2ir (pathBasename filePath), parseTree.tree, errors
       t = (new Date).getTime() - t
       console.log "\n==================="
       console.log "ast2ir Result"
+
+      # if IR is generated
       if errors.success()
         console.log "Success!"
         console.log "Compiled in " + t.toString() + " miliseconds."
@@ -347,28 +358,30 @@ compile = (filePath) ->
       generator.logIR ir.m
       console.log "===================\n"
 
+      # Report the result to frontend
       result =
         success: !ir.error?,
         parseTree: parseTree
         ir: ir
-
       return result
-    else
+    else # if parsed file is has ambigious or incomplete grammar
       errors.storeParseError ("Incomplete module file " + (pathBasename filePath))
       errors.printErrors()
 
+      # Report the result to frontend
       result =
         success: false,
         parseTree: parseTree
       return result
   catch error
+    # if there is a syntax or punctation error in the source file
     if error.message.indexOf "invalid syntax at line" > -1
       errors.storeParseError ("Invalid character in module " + (pathBasename filePath)), error.token, error
       errors.printErrors()
-    else
+    else # This should never if the compiler is not buggy
       console.error error
 
-
+    # eport the result to frontend
     result =
       success: false,
       parseTree: null

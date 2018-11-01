@@ -1,4 +1,5 @@
-## Implemented Parser Rules
+## Parse
+### Implemented Parser Rules
 * Type Declarations (nested)
 * Native type properties and assignments
 * Regions and memory layout markers
@@ -9,7 +10,7 @@
 * Reserved statements
 * Function calls
 
-## Parser TODO List
+### TODO List
 * Expressions
 * Array literals
 * Tuple literals
@@ -18,15 +19,16 @@
 * Arrays as function argument and return types
 * Line number reporting
 
-## Implemented Code Generation
+## Compiler
+### Implemented Features
+* Error reporting
+
+### Implemented Code Generation
 * Native types
 * Struct types
 * Main function
 * Any function
 
-## Code Generation TODO List
+### Code Generation TODO List
 * Function bodies
 * Type bodies
-
-## Compiler TODO List
-* Error reporting
