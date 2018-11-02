@@ -48,7 +48,7 @@ createErrorStore = () ->
             console.error error.reason
             console.error ""
             if error.token?
-              console.error "Line: " + error.token.line + " - Column: " + error.token.col
+              console.error "Line: " + (error.token.line - 1) + " - Column: " + error.token.col
               if error.token.line - 3 >= 0
                 console.error (error.token.line - 3).toString().gray + "\t" + @sourceFileLineContents[error.token.line - 3].green
               if error.token.line - 2 >= 0
@@ -65,7 +65,7 @@ createErrorStore = () ->
             console.error error.reason
             console.error ""
             if error.token?
-              console.error "Line: " + error.token.line + " - Column: " + error.token.col
+              console.error "Line: " + (error.token.line - 1) + " - Column: " + error.token.col
               if error.token.line - 3 >= 0
                 console.error (error.token.line - 3).toString().gray + "\t" + @sourceFileLineContents[error.token.line - 3].green
               if error.token.line - 2 >= 0

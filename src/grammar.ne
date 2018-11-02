@@ -194,7 +194,7 @@ propertyAssignment -> onl %equals onl expression {% (d) => { return { operation:
 
 # Expression
 # TODO : implement all expressions
-expression -> literal {% (d) => { return { expression: "literal", litrealExpression: d[0] } } %}
+expression -> literal {% (d) => { return { expression: "literal", literalExpression: d[0], token: d[0].token } } %}
             | identifierOrReservedStatement {% id %}
             | funcCall {% id %}
             # | statement
@@ -205,17 +205,21 @@ expression -> literal {% (d) => { return { expression: "literal", litrealExpress
 
 funcCall -> %lalpha ws expression {% (d, l, r) => {
   if (d[0].value === 'return' ) {
-    return { expression: "return", returnExpression: d[2] };
+    return { expression: "return", returnExpression: d[2], token: d[0] };
   } else {
-    return { expression: "call", callExpression: d[2] };
+    return { expression: "call", callExpression: d[2], functionName: d[0].value, token: d[0] };
   }
 } %}
 
 identifierOrReservedStatement -> %dollar {% (d) => { return { expression: "identifier", identifierExpression: d[0] } }%}
-                               | %lalpha {% (d) => {
+                               | %lalpha {% (d, l, r) => {
                                   switch (d[0].value) {
                                     case "return":
                                       return { expression: "return" };
+                                    case "true":
+                                      return r;
+                                    case "false":
+                                      return r;
                                     default:
                                       return { expression: "identifier", identifierExpression: d[0] };
                                   }
@@ -241,6 +245,7 @@ numberLiteral -> number {% (d, l, r) => {
     return Number(n) === n && n % 1 !== 0;
   }
 
+  let token = d[0];
   let lowercase = deepExtractString(d[0]).toLowerCase();
 
   if (exists(lowercase) && lowercase.indexOf("0b") != -1) {
@@ -253,9 +258,9 @@ numberLiteral -> number {% (d, l, r) => {
   let dotExists = lowercase.indexOf(".") !== -1;
 
   if (Number.isInteger(value) && !dotExists) {
-    return { nativeType: "Int", literalValue: value };
+    return { nativeType: "Int", literalValue: value, token: token };
   } else if ((isFloat(value) || Number.isInteger(value)) && dotExists) {
-    return { nativeType: "Float", literalValue: value };
+    return { nativeType: "Float", literalValue: value, token: token };
   } else {
     console.error("Literal is not a number: " + value);
     return r;
@@ -263,15 +268,15 @@ numberLiteral -> number {% (d, l, r) => {
 } %}
 
 # Copied and extended from https://github.com/kach/nearley/blob/master/examples/json.ne
-stringLiteral -> %string {% (d) => { return { nativeType: "String", literalValue: JSON.parse(d[0].value) } } %}
-               | %emptyString {% (d) => { return { nativeType: "String", literalValue: "" } } %}
+stringLiteral -> %string {% (d) => { return { nativeType: "String", literalValue: JSON.parse(d[0].value), token: d[0] } } %}
+               | %emptyString {% (d) => { return { nativeType: "String", literalValue: "", token: d[0] } } %}
 
 boolLiteral -> %lalpha {% (d, l, r) => {
   switch (d[0].value) {
     case "true":
-      return { nativeType: "Bool", literalValue: true };
+      return { nativeType: "Bool", literalValue: true, token: d[0] };
     case "false":
-      return { nativeType: "Bool", literalValue: false };
+      return { nativeType: "Bool", literalValue: false, token: d[0] };
     default:
       return r;
   }

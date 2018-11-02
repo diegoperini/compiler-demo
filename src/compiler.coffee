@@ -6,7 +6,67 @@ generator = require './generator'
 errorStore = require "./error-store"
 colors = require 'colors'
 
+TODO = () -> return
+
 # Utilities
+getNativeTypeTable = () ->
+  typeTable =
+    "Int":
+      IR: generator.getInt32Type()
+      properties: {}
+    "UInt":
+      IR: generator.getUInt32Type()
+      properties: {}
+    "Float":
+      IR: generator.getFloat32Type()
+      properties: {}
+    "Int8":
+      IR: generator.getInt8Type()
+      properties: {}
+    "Int16":
+      IR: generator.getInt16Type()
+      properties: {}
+    "Int32":
+      IR: generator.getInt32Type()
+      properties: {}
+    "Int64":
+      IR: generator.getInt64Type()
+      properties: {}
+    "UInt8":
+      IR: generator.getUInt8Type()
+      properties: {}
+    "UInt16":
+      IR: generator.getUInt16Type()
+      properties: {}
+    "UInt32":
+      IR: generator.getUInt32Type()
+      properties: {}
+    "UInt64":
+      IR: generator.getUInt64Type()
+      properties: {}
+    "Float16":
+      IR: generator.getFloat16Type()
+      properties: {}
+    "Float32":
+      IR: generator.getFloat32Type()
+      properties: {}
+    "Float64":
+      IR: generator.getFloat64Type()
+      properties: {}
+    "Bool":
+      IR: generator.getBoolType()
+      properties: {}
+    "String":
+      IR: generator.getStringType()
+      properties: {}
+    "Void":
+      IR: generator.getVoidType()
+      properties: {}
+    "Unit":
+      IR: generator.getUnitType()
+      properties: {}
+  return typeTable
+
 searchTypeToRoot = (types, searchedTypeName, location) ->
   route = location.split '.'
   route.reverse()
@@ -22,6 +82,39 @@ searchTypeToRoot = (types, searchedTypeName, location) ->
       currentLocation = r + "." + currentLocation
 
   return found
+
+matchTypes = (types, t1, t2, scopeFullname) ->
+  integers = [
+    "Int"
+    "UInt"
+    "Int8"
+    "Int16"
+    "Int32"
+    "Int64"
+    "UInt8"
+    "UInt16"
+    "UInt32"
+    "UInt64"
+  ]
+  floats = [
+    "Float"
+    "Float16"
+    "Float32"
+    "Float64"
+  ]
+
+  if t1 in integers and t2 in integers
+    return true
+  else if t1 in floats and t2 in floats
+    return true
+  else
+    f1 = searchTypeToRoot types, t1, scopeFullname
+    f2 = searchTypeToRoot types, t2, scopeFullname
+    # console.log "¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬``"
+    # console.plog f1
+    # console.plog f1
+    # console.log "¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬``"
+    return f1? and f2? and f1 is f2
 
 extractTypeProperties = (parseTree) ->
   if !parseTree?
@@ -121,61 +214,7 @@ extractTypes = (parseTree, parentName) ->
         return []
 
 flattenTypeTable = (types) ->
-  typeTable =
-    "Int":
-      IR: generator.getInt32Type()
-      properties: {}
-    "UInt":
-      IR: generator.getUInt32Type()
-      properties: {}
-    "Float":
-      IR: generator.getFloat32Type()
-      properties: {}
-    "Int8":
-      IR: generator.getInt8Type()
-      properties: {}
-    "Int16":
-      IR: generator.getInt16Type()
-      properties: {}
-    "Int32":
-      IR: generator.getInt32Type()
-      properties: {}
-    "Int64":
-      IR: generator.getInt64Type()
-      properties: {}
-    "UInt8":
-      IR: generator.getUInt8Type()
-      properties: {}
-    "UInt16":
-      IR: generator.getUInt16Type()
-      properties: {}
-    "UInt32":
-      IR: generator.getUInt32Type()
-      properties: {}
-    "UInt64":
-      IR: generator.getUInt64Type()
-      properties: {}
-    "Float16":
-      IR: generator.getFloat16Type()
-      properties: {}
-    "Float32":
-      IR: generator.getFloat32Type()
-      properties: {}
-    "Float64":
-      IR: generator.getFloat64Type()
-      properties: {}
-    "Bool":
-      IR: generator.getBoolType()
-      properties: {}
-    "String":
-      IR: generator.getStringType()
-      properties: {}
-    "Void":
-      IR: generator.getVoidType()
-      properties: {}
-    "Unit":
-      IR: generator.getUnitType()
-      properties: {}
+  typeTable = getNativeTypeTable()
 
   add = (t) ->
     if Array.isArray t
@@ -188,7 +227,7 @@ flattenTypeTable = (types) ->
   return typeTable
 
 missingIRExists = (types, functions) ->
-  missingIrInTypes = !(Object.keys types).every (k) ->
+  missingIRInTypes = !(Object.keys types).every (k) ->
     type = types[k]
     # console.log "in: " + k
     propIRExists = (Object.keys type.properties).every (pk) ->
@@ -201,7 +240,7 @@ missingIRExists = (types, functions) ->
         return true
     return propIRExists and type.IR
 
-  missingIrInFunctions = !(Object.keys functions).every (k) ->
+  missingIRInFunctions = !(Object.keys functions).every (k) ->
     func = functions[k]
     # console.log "in: " + k
     propIRExists = (Object.keys func.properties).every (pk) ->
@@ -214,7 +253,59 @@ missingIRExists = (types, functions) ->
         return true
     return propIRExists and func.IR
 
-  return missingIrInTypes or missingIrInFunctions
+  return missingIRInTypes or missingIRInFunctions
+
+# Complex generators
+generateLiteralIR = (literal, main, scope) ->
+  switch literal.nativeType
+    when "Int"
+      return generator.createConstant(literal.literalValue)
+    when "UInt"
+      return generator.createConstant(literal.literalValue)
+    when "Float"
+      return generator.createConstantFloat(literal.literalValue)
+    when "Int8"
+      return generator.createConstant(literal.literalValue)
+    when "Int16"
+      return generator.createConstant(literal.literalValue)
+    when "Int32"
+      return generator.createConstant(literal.literalValue)
+    when "Int64"
+      return generator.createConstant(literal.literalValue)
+    when "UInt8"
+      return generator.createConstant(literal.literalValue)
+    when "UInt16"
+      return generator.createConstant(literal.literalValue)
+    when "UInt32"
+      return generator.createConstant(literal.literalValue)
+    when "UInt64"
+      return generator.createConstant(literal.literalValue)
+    when "Float16"
+      return generator.createConstantFloat(literal.literalValue)
+    when "Float32"
+      return generator.createConstantFloat(literal.literalValue)
+    when "Float64"
+      return generator.createConstantFloat(literal.literalValue)
+    when "Bool"
+      if literal.literalValue
+        return generator.createConstant(1)
+      else
+        return generator.createConstant(0)
+    when "String"
+      console.log "??????????????????"
+      return scope.builder.createGlobalStringPtr literal.literalValue
+    # when "Void"
+    when "Unit"
+      return mainBuilder.createLoad main.unitAlloca
+
+generateExpressionIR = (expression, main, scope) ->
+  switch expression.expression
+    when "literal"
+      result =
+        type: expression.literalExpression.nativeType
+        token: expression.token
+        IR: generateLiteralIR expression.literalExpression, main, scope
+      return result
 
 # Main IR generation
 ast2ir = (moduleName, parseTree, errors) ->
@@ -248,17 +339,18 @@ ast2ir = (moduleName, parseTree, errors) ->
         # Generate IR for type properties
         (Object.keys type.properties).forEach (pk) ->
           prop = type.properties[pk]
+          if prop.IR? then return
+
           # TODO : generate property IR
             # TODO : native type
             # TODO : tuple type
             # TODO : function type
             # TODO : tuple type
             # TODO : array type
-          if prop.IR? then return
-          prop.IR = "TODO"
+          prop.IR = TODO
 
         # TODO : generate type IR
-        type.IR = "TODO"
+        type.IR = TODO
 
         # type.IR = generator.createType [], type.fullname
         # alloca = main.mainBuilder.createAlloca type.IR.t
@@ -281,16 +373,13 @@ ast2ir = (moduleName, parseTree, errors) ->
         (Object.keys func.properties).forEach (pk) ->
           prop = func.properties[pk]
 
-          # console.log "Searching... " + prop.type.name + " in " + func.fullname
           prop.found = searchTypeToRoot types, prop.type.name, func.fullname
-          prop.IR = "TODO"
           if !prop.found?
             errors.storeSemanticError prop.type.name.red + " is not a proper type. Found in function " + (((func.fullname.split(".").slice 1).join ".") + "." + prop.propertyName).cyan + " in module " + moduleName.yellow, prop.token.token
 
-
         # Do not generate IR if the function is malformed
         if !foundRet? or !foundArg?
-          func.IR = "TODO"
+          func.IR = TODO
           return
 
         # Generate IR for function body
@@ -302,7 +391,23 @@ ast2ir = (moduleName, parseTree, errors) ->
 
             # Generate property IR
             if prop.found?
-              prop.IR = f.builder.createAlloca(prop.found.IR.t, generator.createConstant(2), prop.propertyName)
+              prop.IR = f.builder.createAlloca(prop.found.IR.t, generator.createConstant(1), prop.propertyName)
+
+              # Generate initial value assignment IR
+              if prop.expression?
+                initialValue = generateExpressionIR prop.expression, main, f
+                console.log "¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬dakdaskldjaslkjdsalkdjlkajdaklsj"
+                console.plog initialValue
+                if matchTypes types, initialValue.type, prop.type.name, func.fullname
+                  f.builder.createStore initialValue.IR, prop.IR
+                else
+                  message = "Type of " + prop.propertyName.yellow + " (" + prop.type.name.red + ")" +
+                    " do not match with the assignment (" + (if initialValue? then initialValue.type.red else "?") +
+                    "). Found in function " + (((func.fullname.split(".").slice 1).join ".") +
+                    "." + prop.propertyName).cyan + " in module " + moduleName.yellow
+                  errors.storeSemanticError message, if initialValue? then initialValue.token else null
+
+          # TODO : Generate IR for func expressions
 
   # console.log "\n==================="
   # console.log "Type Table"
@@ -318,6 +423,7 @@ ast2ir = (moduleName, parseTree, errors) ->
 
   return m: m, error: null
 
+# Interface
 compile = (filePath) ->
   # Initialize
   errors = errorStore.createErrorStore()
@@ -380,7 +486,7 @@ compile = (filePath) ->
       errors.storeParseError ("Invalid character in module " + (pathBasename filePath)), error.token, error
       errors.printErrors()
 
-    # console.error error
+    console.error error
 
     # eport the result to frontend
     result =
@@ -389,6 +495,7 @@ compile = (filePath) ->
     return result
 
 uncompile = (filePath) -> console.log "Uncompiled!"
+
 run = (d2module) -> console.log "Running d2 module!"
 
 module.exports =

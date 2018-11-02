@@ -79,7 +79,7 @@ export function getStringType() : StringT {
   return { t: llvm.PointerType.get(StringType, 0) }
 }
 
-type TypeT = { t: llvm.Type, properties: TypeT[] } | IntT | FloatT | VoidT | StringT
+type TypeT = { t: llvm.StructType, properties: TypeT[] } | IntT | FloatT | VoidT | StringT
 export function createType(properties: TypeT[], name?: string) : TypeT {
   let struct = llvm.StructType.create(context, name)
   let props = [getInt32Type().t, ...properties.map((p) => llvm.PointerType.get(p.t, 0))]
@@ -107,18 +107,21 @@ export function createModule(name: string) : llvm.Module {
 }
 
 // Functions
-type Main = { mainBlock: llvm.BasicBlock, mainBuilder: llvm.IRBuilder, mainReturnAlloca: llvm.AllocaInst }
+type Main = { mainBlock: llvm.BasicBlock, mainBuilder: llvm.IRBuilder, mainReturnAlloca: llvm.AllocaInst, unitAlloca: llvm.AllocaInst }
 export function createMain(llvmModule: llvm.Module, scope: (main: Main) => void) : Main {
   let intType = llvm.Type.getInt32Ty(context)
   let mainFuncType = llvm.FunctionType.get(intType, false)
   let mainFunc = llvmModule.getOrInsertFunction("main", mainFuncType)
   let mainBlock = llvm.BasicBlock.create(context, "", mainFunc as llvm.Function)
   let mainBuilder = new llvm.IRBuilder(mainBlock)
-  let mainReturnAlloca = mainBuilder.createAlloca(intType)
 
+  let mainReturnAlloca = mainBuilder.createAlloca(intType, createConstant(1), "mainReturn")
   mainBuilder.createStore(createConstant(0), mainReturnAlloca)
+  let unitType = getUnitType()
+  let unitAlloca = mainBuilder.createAlloca(unitType.t, createConstant(1), "unit")
+  mainBuilder.createStore(llvm.ConstantStruct.get(unitType.t as llvm.StructType, [createConstant(0)]), unitAlloca)
 
-  let main = { mainBlock, mainBuilder, mainReturnAlloca }
+  let main = { mainBlock, mainBuilder, mainReturnAlloca, unitAlloca }
   scope(main)
 
   mainBuilder.createRet(mainBuilder.createLoad(mainReturnAlloca))
@@ -131,7 +134,7 @@ export function createFunction(llvmModule: llvm.Module, returnType: llvm.Type, p
   let func = llvm.Function.create(funcType, llvm.LinkageTypes.PrivateLinkage, name, llvmModule)
   let block = llvm.BasicBlock.create(context, "", func)
   let builder = new llvm.IRBuilder(block)
-  let returnAlloca = builder.createAlloca(returnType)
+  let returnAlloca = builder.createAlloca(returnType, createConstant(1), name + "Return")
 
   let funcStruct = { block, builder, returnAlloca }
   scope(funcStruct)
@@ -141,8 +144,12 @@ export function createFunction(llvmModule: llvm.Module, returnType: llvm.Type, p
 }
 
 // Values
-export function createConstant(value: number) : llvm.Value {
+export function createConstant(value: number) : llvm.Constant {
   return llvm.ConstantInt.get(context, value)
+}
+
+export function createConstantFloat(value: number) : llvm.Constant {
+  return llvm.ConstantFP.get(context, value)
 }
 
 // Debug log IR
@@ -167,6 +174,7 @@ function test() {
     // createFunction(m, getInt32Type().t, getUnitType(), "testFunc", (func: Function) => {
     //   func.builder.createStore(createConstant(42), func.returnAlloca)
     // })
+
   })
 
   logIR(m)

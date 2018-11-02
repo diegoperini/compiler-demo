@@ -17,10 +17,10 @@
 * Preprocessor directives
 * Unambigious function curry type
 * Arrays as function argument and return types
-* Line number reporting
 
 ## Compiler
 ### Implemented Features
+* Function properties
 * Error reporting
 
 ### Implemented Code Generation
@@ -29,6 +29,6 @@
 * Main function
 * Any function
 
-### Code Generation TODO List
+### Compiler TODO List
 * Function bodies
 * Type bodies

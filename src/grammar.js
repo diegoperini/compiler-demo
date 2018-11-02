@@ -201,21 +201,25 @@ var grammar = {
           }
         } },
     {"name": "propertyAssignment", "symbols": ["onl", (lexer.has("equals") ? {type: "equals"} : equals), "onl", "expression"], "postprocess": (d) => { return { operation: d[1].value, expression: d[3] } }},
-    {"name": "expression", "symbols": ["literal"], "postprocess": (d) => { return { expression: "literal", litrealExpression: d[0] } }},
+    {"name": "expression", "symbols": ["literal"], "postprocess": (d) => { return { expression: "literal", literalExpression: d[0], token: d[0].token } }},
     {"name": "expression", "symbols": ["identifierOrReservedStatement"], "postprocess": id},
     {"name": "expression", "symbols": ["funcCall"], "postprocess": id},
     {"name": "funcCall", "symbols": [(lexer.has("lalpha") ? {type: "lalpha"} : lalpha), "ws", "expression"], "postprocess":  (d, l, r) => {
           if (d[0].value === 'return' ) {
-            return { expression: "return", returnExpression: d[2] };
+            return { expression: "return", returnExpression: d[2], token: d[0] };
           } else {
-            return { expression: "call", callExpression: d[2] };
+            return { expression: "call", callExpression: d[2], functionName: d[0].value, token: d[0] };
           }
         } },
     {"name": "identifierOrReservedStatement", "symbols": [(lexer.has("dollar") ? {type: "dollar"} : dollar)], "postprocess": (d) => { return { expression: "identifier", identifierExpression: d[0] } }},
-    {"name": "identifierOrReservedStatement", "symbols": [(lexer.has("lalpha") ? {type: "lalpha"} : lalpha)], "postprocess":  (d) => {
+    {"name": "identifierOrReservedStatement", "symbols": [(lexer.has("lalpha") ? {type: "lalpha"} : lalpha)], "postprocess":  (d, l, r) => {
           switch (d[0].value) {
             case "return":
               return { expression: "return" };
+            case "true":
+              return r;
+            case "false":
+              return r;
             default:
               return { expression: "identifier", identifierExpression: d[0] };
           }
@@ -238,6 +242,7 @@ var grammar = {
             return Number(n) === n && n % 1 !== 0;
           }
         
+          let token = d[0];
           let lowercase = deepExtractString(d[0]).toLowerCase();
         
           if (exists(lowercase) && lowercase.indexOf("0b") != -1) {
@@ -250,22 +255,22 @@ var grammar = {
           let dotExists = lowercase.indexOf(".") !== -1;
         
           if (Number.isInteger(value) && !dotExists) {
-            return { nativeType: "Int", literalValue: value };
+            return { nativeType: "Int", literalValue: value, token: token };
           } else if ((isFloat(value) || Number.isInteger(value)) && dotExists) {
-            return { nativeType: "Float", literalValue: value };
+            return { nativeType: "Float", literalValue: value, token: token };
           } else {
             console.error("Literal is not a number: " + value);
             return r;
           }
         } },
-    {"name": "stringLiteral", "symbols": [(lexer.has("string") ? {type: "string"} : string)], "postprocess": (d) => { return { nativeType: "String", literalValue: JSON.parse(d[0].value) } }},
-    {"name": "stringLiteral", "symbols": [(lexer.has("emptyString") ? {type: "emptyString"} : emptyString)], "postprocess": (d) => { return { nativeType: "String", literalValue: "" } }},
+    {"name": "stringLiteral", "symbols": [(lexer.has("string") ? {type: "string"} : string)], "postprocess": (d) => { return { nativeType: "String", literalValue: JSON.parse(d[0].value), token: d[0] } }},
+    {"name": "stringLiteral", "symbols": [(lexer.has("emptyString") ? {type: "emptyString"} : emptyString)], "postprocess": (d) => { return { nativeType: "String", literalValue: "", token: d[0] } }},
     {"name": "boolLiteral", "symbols": [(lexer.has("lalpha") ? {type: "lalpha"} : lalpha)], "postprocess":  (d, l, r) => {
           switch (d[0].value) {
             case "true":
-              return { nativeType: "Bool", literalValue: true };
+              return { nativeType: "Bool", literalValue: true, token: d[0] };
             case "false":
-              return { nativeType: "Bool", literalValue: false };
+              return { nativeType: "Bool", literalValue: false, token: d[0] };
             default:
               return r;
           }
