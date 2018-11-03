@@ -192,7 +192,7 @@ flattenFuncTable = (funcs) ->
   return funcTable
 
 extractTypes = (parseTree, parentName) ->
-  # TODO : extract unnamed types
+  # TODO : extract unnamed types from properties (i.e tuples, functions, arrays)
   switch parseTree.declaration
     when "func"
       if parentName isnt ""
@@ -259,38 +259,38 @@ missingIRExists = (types, functions) ->
 generateLiteralIR = (literal, main, scope) ->
   switch literal.nativeType
     when "Int"
-      return generator.createConstant(literal.literalValue)
+      return generator.createConstant literal.literalValue, 32, true
     when "UInt"
-      return generator.createConstant(literal.literalValue)
+      return generator.createConstant literal.literalValue, 32, false
     when "Float"
-      return generator.createConstantFloat(literal.literalValue)
+      return generator.createConstantFloat literal.literalValue
     when "Int8"
-      return generator.createConstant(literal.literalValue)
+      return generator.createConstant literal.literalValue, 8, true
     when "Int16"
-      return generator.createConstant(literal.literalValue)
+      return generator.createConstant literal.literalValue, 16, true
     when "Int32"
-      return generator.createConstant(literal.literalValue)
+      return generator.createConstant literal.literalValue, 32, true
     when "Int64"
-      return generator.createConstant(literal.literalValue)
+      return generator.createConstant literal.literalValue, 64, true
     when "UInt8"
-      return generator.createConstant(literal.literalValue)
+      return generator.createConstant literal.literalValue, 8, false
     when "UInt16"
-      return generator.createConstant(literal.literalValue)
+      return generator.createConstant literal.literalValue, 16, false
     when "UInt32"
-      return generator.createConstant(literal.literalValue)
+      return generator.createConstant literal.literalValue, 32, false
     when "UInt64"
-      return generator.createConstant(literal.literalValue)
+      return generator.createConstant literal.literalValue, 64, false
     when "Float16"
-      return generator.createConstantFloat(literal.literalValue)
+      return generator.createConstantFloat literal.literalValue
     when "Float32"
-      return generator.createConstantFloat(literal.literalValue)
+      return generator.createConstantFloat literal.literalValue
     when "Float64"
-      return generator.createConstantFloat(literal.literalValue)
+      return generator.createConstantFloat literal.literalValue
     when "Bool"
       if literal.literalValue
-        return generator.createConstant(1)
+        return generator.createConstant 1, 8, false
       else
-        return generator.createConstant(0)
+        return generator.createConstant 0, 8, false
     when "String"
       console.log "??????????????????"
       return scope.builder.createGlobalStringPtr literal.literalValue
@@ -396,9 +396,10 @@ ast2ir = (moduleName, parseTree, errors) ->
               # Generate initial value assignment IR
               if prop.expression?
                 initialValue = generateExpressionIR prop.expression, main, f
-                console.log "¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬dakdaskldjaslkjdsalkdjlkajdaklsj"
-                console.plog initialValue
+                # console.log "¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬dakdaskldjaslkjdsalkdjlkajdaklsj"
+                # console.plog initialValue
                 if matchTypes types, initialValue.type, prop.type.name, func.fullname
+
                   f.builder.createStore initialValue.IR, prop.IR
                 else
                   message = "Type of " + prop.propertyName.yellow + " (" + prop.type.name.red + ")" +
@@ -420,8 +421,9 @@ ast2ir = (moduleName, parseTree, errors) ->
   # console.log ""
   # console.plog functions
   # console.log "===================\n"
+  generator.writeBitcodeToFile(m, "./lol.bit")
 
-  return m: m, error: null
+  return m: m
 
 # Interface
 compile = (filePath) ->
@@ -467,7 +469,7 @@ compile = (filePath) ->
 
       # Report the result to frontend
       result =
-        success: !ir.error?,
+        success: true,
         parseTree: parseTree
         ir: ir
       return result

@@ -144,8 +144,8 @@ export function createFunction(llvmModule: llvm.Module, returnType: llvm.Type, p
 }
 
 // Values
-export function createConstant(value: number) : llvm.Constant {
-  return llvm.ConstantInt.get(context, value)
+export function createConstant(value: number, numberOfBits: number = 32, signed: boolean = true) : llvm.Constant {
+  return llvm.ConstantInt.get(context, value, numberOfBits, signed)
 }
 
 export function createConstantFloat(value: number) : llvm.Constant {
