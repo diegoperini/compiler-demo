@@ -107,39 +107,65 @@ export function createModule(name: string) : llvm.Module {
 }
 
 // Functions
-type Main = { mainBlock: llvm.BasicBlock, mainBuilder: llvm.IRBuilder, mainReturnAlloca: llvm.AllocaInst, unitAlloca: llvm.AllocaInst }
+type Main = { mainBlock: llvm.BasicBlock, mainBuilder: llvm.IRBuilder, returnFromMain: (value: llvm.Value) => void, unitAlloca: llvm.AllocaInst }
 export function createMain(llvmModule: llvm.Module, scope: (main: Main) => void) : Main {
-  let intType = llvm.Type.getInt32Ty(context)
-  let mainFuncType = llvm.FunctionType.get(intType, false)
-  let mainFunc = llvmModule.getOrInsertFunction("main", mainFuncType)
-  let mainBlock = llvm.BasicBlock.create(context, "", mainFunc as llvm.Function)
+  let returnType = llvm.Type.getInt32Ty(context)
+  let mainFuncType = llvm.FunctionType.get(returnType, false)
+  // let mainFunc = llvmModule.getOrInsertFunction("main", mainFuncType)
+  let mainFunc = llvm.Function.create(mainFuncType, llvm.LinkageTypes.ExternalLinkage, "main", llvmModule)
+
+  let returnBlock = llvm.BasicBlock.create(context, "ReturnBlock", mainFunc)
+  let returnBuilder = new llvm.IRBuilder(returnBlock)
+
+  let mainBlock = llvm.BasicBlock.create(context, "MainBlock", mainFunc, returnBlock)
   let mainBuilder = new llvm.IRBuilder(mainBlock)
 
-  let mainReturnAlloca = mainBuilder.createAlloca(intType, createConstant(1), "mainReturn")
-  mainBuilder.createStore(createConstant(0), mainReturnAlloca)
+  let returnAlloca = mainBuilder.createAlloca(returnType, createConstant(1), "MainReturn")
+  let returnLocation = returnBuilder.createRet(returnBuilder.createLoad(returnAlloca))
+  mainBuilder.createStore(createConstant(0), returnAlloca)
+
+  let returned = false
+  function returnFromMain(value: llvm.Value) : void {
+    mainBuilder.createStore(value, returnAlloca)
+    mainBuilder.createBr(returnBlock)
+    returned = true
+  }
+
   let unitType = getUnitType()
   let unitAlloca = mainBuilder.createAlloca(unitType.t, createConstant(1), "unit")
   mainBuilder.createStore(llvm.ConstantStruct.get(unitType.t as llvm.StructType, [createConstant(0)]), unitAlloca)
 
-  let main = { mainBlock, mainBuilder, mainReturnAlloca, unitAlloca }
+  let main = { mainBlock, mainBuilder, returnFromMain, unitAlloca }
   scope(main)
-
-  mainBuilder.createRet(mainBuilder.createLoad(mainReturnAlloca))
+  if (!returned) returnFromMain(mainBuilder.createLoad(returnAlloca))
   return main
 }
 
-type Function = { block: llvm.BasicBlock, builder: llvm.IRBuilder, returnAlloca: llvm.AllocaInst }
+type Function = { block: llvm.BasicBlock, builder: llvm.IRBuilder, returnFromFunction: (value: llvm.Value) => void }
 export function createFunction(llvmModule: llvm.Module, returnType: llvm.Type, params: TypeT, name: string, scope: (func: Function) => void) : Function {
   let funcType = llvm.FunctionType.get(returnType, [params.t], false)
   let func = llvm.Function.create(funcType, llvm.LinkageTypes.PrivateLinkage, name, llvmModule)
-  let block = llvm.BasicBlock.create(context, "", func)
+
+  let returnBlock = llvm.BasicBlock.create(context, "ReturnBlock", func)
+  let returnBuilder = new llvm.IRBuilder(returnBlock)
+
+  let block = llvm.BasicBlock.create(context, name + "Block", func, returnBlock)
   let builder = new llvm.IRBuilder(block)
+
   let returnAlloca = builder.createAlloca(returnType, createConstant(1), name + "Return")
+  let returnLocation = returnBuilder.createRet(returnBuilder.createLoad(returnAlloca))
+  // TODO : store initialized valie in returnAlloca
 
-  let funcStruct = { block, builder, returnAlloca }
+  let returned = false
+  function returnFromFunction(value: llvm.Value) : void {
+    builder.createStore(value, returnAlloca)
+    builder.createBr(returnBlock)
+    returned = true
+  }
+
+  let funcStruct = { block, builder, returnFromFunction }
   scope(funcStruct)
-
-  builder.createRet(builder.createLoad(returnAlloca))
+  if (!returned) returnFromFunction(builder.createLoad(returnAlloca))
   return funcStruct
 }
 
@@ -159,21 +185,20 @@ export function logIR(llvmModule: llvm.Module) {
 
 // Write bitcode to file
 export function writeBitcodeToFile(llvmModule: llvm.Module, filePath: string) {
+  try {
+    llvm.verifyModule(llvmModule)
+  } catch(e) {
+    console.error(e)
+  }
+
   llvm.writeBitcodeToFile(llvmModule, filePath)
 }
 
 function test() {
   let m = createModule("test")
 
-  // let printfType = llvm.FunctionType.get(llvm.Type.getInt32Ty(context), [getStringType().t], true)
-  // let printf = m.getOrInsertFunction("printf", printfType)
-
   createMain(m, (main: Main) => {
-    el.printf("Hello öç.pğüşiı😄 😅 😆 😉 World! %d\n",  [createConstant(123)], context, m, main.mainBuilder)
-
-    // createFunction(m, getInt32Type().t, getUnitType(), "testFunc", (func: Function) => {
-    //   func.builder.createStore(createConstant(42), func.returnAlloca)
-    // })
+    // el.printf("Hello öç.pğüşiı😄 😅 😆 😉 World! %d\n",  [createConstant(123)], context, m, main.mainBuilder)
 
   })
 
@@ -196,4 +221,4 @@ function test() {
   // otool -tvV lol
 }
 
-// test()
+test()

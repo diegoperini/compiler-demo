@@ -30,5 +30,8 @@
 * Any function
 
 ### Compiler TODO List
+* Symbol table
 * Function bodies
+* Expressions
 * Type bodies
+* Regions and memory layout markers
