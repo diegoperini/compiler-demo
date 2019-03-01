@@ -72,4 +72,8 @@ typings/
 # Serverless directories
 .serverless
 
+# OS X BS
 .DS_Store
+
+# Temporary Ignores
+lol.bit
