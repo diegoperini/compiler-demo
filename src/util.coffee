@@ -24,3 +24,16 @@ console.plog = (l) ->
     compact: false
   obj = util.inspect l, opt
   console.log obj
+
+console.flog = (l, file, asJson) ->
+  if asJson? and asJson
+    fs.writeFileSync file, JSON.stringify l, null, 2
+  else
+    opt =
+      showHidden: false
+      depth: null
+      colors: false
+      compact: false
+    obj = util.inspect l, opt
+
+    fs.writeFileSync file, obj

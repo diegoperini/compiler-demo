@@ -26,7 +26,7 @@ parse = (str) ->
   if parser.results.length > 0
     result =
       tree: parser.results[0]
-      ambigious: parser.results.length isnt 1
+      ambiguous: parser.results.length isnt 1
       parseCount: parser.results.length
     return result
   else

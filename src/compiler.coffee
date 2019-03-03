@@ -93,7 +93,6 @@ generateLiteralIR = (literal, main, scope) ->
       else
         return constants.createConstant 0, 8, false
     when "String"
-      console.log "??????????????????"
       return scope.builder.createGlobalStringPtr literal.literalValue
     # when "Void"
     when "Unit"
@@ -115,7 +114,7 @@ ast2ir = (moduleName, parseTree, errors) ->
   # Generate IR for main function
   mainFunction.createMain m, (main) ->
     # Extract types and functions
-    generatedTypeTable = generateTypeTable parseTree.declarations, "main."
+    generatedTypeTable = generateTypeTable parseTree.declarations, "main"
     generatedFunctionTable = generateFunctionTable parseTree.declarations, "main"
 
     # Extract properties
@@ -211,17 +210,20 @@ ast2ir = (moduleName, parseTree, errors) ->
 
           # TODO : Generate IR for func expressions
 
-  # console.log "\n==================="
-  # console.log "Type Table"
-  # console.log ""
-  # console.plog generatedTypeTable
-  # console.log "===================\n"
+    console.log "\n==================="
+    console.log "Type Table"
+    console.log ""
+    console.plog Object.keys generatedTypeTable
+    console.plog generatedTypeTable
+    console.log "===================\n"
 
-  # console.log "\n==================="
-  # console.log "Function Table"
-  # console.log ""
-  # console.plog functions
-  # console.log "===================\n"
+    console.log "\n==================="
+    console.log "Function Table"
+    console.log ""
+    console.plog Object.keys generatedFunctionTable
+    console.plog generatedFunctionTable
+    console.log "===================\n"
+
   generator.writeBitcodeToFile(m, "./lol.bit")
 
   return m: m
@@ -244,7 +246,8 @@ compile = (filePath) ->
       console.log "\n==================="
       console.log "AST"
       console.log ""
-      console.plog parseTree
+      console.flog parseTree, 'ast.txt', false
+      console.flog parseTree, 'ast.json', true
       console.log "===================\n"
 
       # Try generating IR
@@ -265,7 +268,7 @@ compile = (filePath) ->
       console.log "\n==================="
       console.log "IR"
       console.log ""
-      generator.logIR ir.m
+      # generator.logIR ir.m
       console.log "===================\n"
 
       # Report the result to frontend
@@ -274,7 +277,7 @@ compile = (filePath) ->
         parseTree: parseTree
         ir: ir
       return result
-    else # if parsed file is has ambigious or incomplete grammar
+    else # if parsed file is has ambiguous or incomplete grammar
       errors.storeParseError ("Incomplete module file " + (pathBasename filePath))
       errors.printErrors()
 
