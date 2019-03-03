@@ -12,235 +12,28 @@ constants = require './constants'
 modules = require './modules'
 functions = require './functions'
 mainFunction = require './main-function'
+{
+  searchTypeToRoot
+  matchTypes
+  generateTypeTable
+  generateTypePropertyTable
+  generateFunctionPropertyTable
+  generateFunctionTable
+} = require './tables'
+
 
 # Dummy function to mark incomplete implementations
 TODO = () -> return
 
 # Utilities
-getNativeTypeTable = () ->
-  typeTable =
-    "Int":
-      IR: types.getInt32Type()
-      properties: {}
-    "UInt":
-      IR: types.getUInt32Type()
-      properties: {}
-    "Float":
-      IR: types.getFloat32Type()
-      properties: {}
-    "Int8":
-      IR: types.getInt8Type()
-      properties: {}
-    "Int16":
-      IR: types.getInt16Type()
-      properties: {}
-    "Int32":
-      IR: types.getInt32Type()
-      properties: {}
-    "Int64":
-      IR: types.getInt64Type()
-      properties: {}
-    "UInt8":
-      IR: types.getUInt8Type()
-      properties: {}
-    "UInt16":
-      IR: types.getUInt16Type()
-      properties: {}
-    "UInt32":
-      IR: types.getUInt32Type()
-      properties: {}
-    "UInt64":
-      IR: types.getUInt64Type()
-      properties: {}
-    "Float16":
-      IR: types.getFloat16Type()
-      properties: {}
-    "Float32":
-      IR: types.getFloat32Type()
-      properties: {}
-    "Float64":
-      IR: types.getFloat64Type()
-      properties: {}
-    "Bool":
-      IR: types.getBoolType()
-      properties: {}
-    "String":
-      IR: types.getStringType()
-      properties: {}
-    "Void":
-      IR: types.getVoidType()
-      properties: {}
-    "Unit":
-      IR: types.getUnitType()
-      properties: {}
-  return typeTable
 
-searchTypeToRoot = (extractedTypes, searchedTypeName, location) ->
-  route = location.split '.'
-  route.reverse()
-
-  currentLocation = searchedTypeName
-  found = null
-  # console.log route
-  route.forEach (r) ->
-    # console.log "!!!!!!!!!!!!!!!!!!!!!  " + currentLocation
-    if extractedTypes[currentLocation]? and !found?
-      found = extractedTypes[currentLocation]
-    else if !found?
-      currentLocation = r + "." + currentLocation
-
-  return found
-
-matchTypes = (extractedTypes, t1, t2, scopeFullname) ->
-  integers = [
-    "Int"
-    "UInt"
-    "Int8"
-    "Int16"
-    "Int32"
-    "Int64"
-    "UInt8"
-    "UInt16"
-    "UInt32"
-    "UInt64"
-  ]
-  floats = [
-    "Float"
-    "Float16"
-    "Float32"
-    "Float64"
-  ]
-
-  if t1 in integers and t2 in integers
-    return true
-  else if t1 in floats and t2 in floats
-    return true
-  else
-    f1 = searchTypeToRoot extractedTypes, t1, scopeFullname
-    f2 = searchTypeToRoot extractedTypes, t2, scopeFullname
-    # console.log "¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬``"
-    # console.plog f1
-    # console.plog f1
-    # console.log "¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬``"
-    return f1? and f2? and f1 is f2
-
-extractTypeProperties = (parseTree) ->
-  if !parseTree?
-    return []
-
-  switch parseTree.declaration
-    when "type"
-      return extractTypeProperties parseTree.body
-    when "property"
-      return [parseTree]
-    when "func"
-      return []
-    else
-      if Array.isArray parseTree
-        return parseTree.map extractTypeProperties
-      else
-        return []
-
-extractFunctionProperties = (parseTree) ->
-  if !parseTree?
-    return []
-
-  switch parseTree.declaration
-    when "func"
-      return parseTree.body.filter (d) -> d.declaration is 'property'
-    else
-      return []
-
-flattenPropertyTable = (props) ->
-  propertyTable = {}
-
-  add = (t) ->
-    if Array.isArray t
-      t.forEach add
-    else if t.propertyName?
-      propertyTable[t.propertyName] = t
-
-  add props
-
-  return propertyTable
-
-extractFunctions = (parseTree, parentName) ->
-  # TODO : extract unnamed functions
-  switch parseTree.declaration
-    when "func"
-      if parentName isnt ""
-        parseTree.fullname = parentName + "." + parseTree.name
-      else
-        parseTree.fullname = parseTree.name
-      return [parseTree, (extractFunctions parseTree.body, parseTree.fullname)...]
-    when "type"
-      if parentName isnt ""
-        parseTree.fullname = parentName + "." + parseTree.name
-      else
-        parseTree.fullname = parseTree.name
-      parseTree.properties = {}
-      return extractFunctions parseTree.body, parseTree.fullname
-    else
-      if Array.isArray parseTree
-        return (parseTree.map (t) -> extractFunctions t, parentName)
-      else
-        return []
-
-flattenFuncTable = (funcs) ->
-  funcTable = {}
-
-  add = (t) ->
-    if Array.isArray t
-      t.forEach add
-    else if t.fullname?
-      funcTable[t.fullname] = t
-
-  add funcs
-
-  return funcTable
-
-extractTypes = (parseTree, parentName) ->
-  # TODO : extract unnamed types from properties (i.e tuples, functions, arrays)
-  switch parseTree.declaration
-    when "func"
-      if parentName isnt ""
-        parseTree.fullname = parentName + "." + parseTree.name
-      else
-        parseTree.fullname = parseTree.name
-      return extractTypes parseTree.body, parseTree.fullname
-    when "type"
-      if parentName isnt ""
-        parseTree.fullname = parentName + "." + parseTree.name
-      else
-        parseTree.fullname = parseTree.name
-      parseTree.properties = {}
-      return [parseTree, (extractTypes parseTree.body, parseTree.fullname)...]
-    else
-      if Array.isArray parseTree
-        return (parseTree.map (t) -> extractTypes t, parentName)
-      else
-        return []
-
-flattenTypeTable = (ts) ->
-  typeTable = getNativeTypeTable()
-
-  add = (t) ->
-    if Array.isArray t
-      t.forEach add
-    else if t.fullname?
-      typeTable[t.fullname] = t
-
-  add ts
-
-  return typeTable
-
-missingIRExists = (extractedTypes, extractedFunctions) ->
-  missingIRInTypes = !(Object.keys extractedTypes).every (k) ->
-    type = extractedTypes[k]
+missingIRExists = (generatedTypeTable, generatedFunctionTable) ->
+  missingIRInTypes = !(Object.keys generatedTypeTable).every (k) ->
+    type = generatedTypeTable[k]
     # console.log "in: " + k
-    propIRExists = (Object.keys type.properties).every (pk) ->
+    propIRExists = (Object.keys type.generatedPropertyTable).every (pk) ->
       # console.log "  in: " + pk
-      prop = type.properties[pk]
+      prop = type.generatedPropertyTable[pk]
       # console.log prop
       if prop?
         return prop.IR?
@@ -248,12 +41,12 @@ missingIRExists = (extractedTypes, extractedFunctions) ->
         return true
     return propIRExists and type.IR
 
-  missingIRInFunctions = !(Object.keys extractedFunctions).every (k) ->
-    func = extractedFunctions[k]
+  missingIRInFunctions = !(Object.keys generatedFunctionTable).every (k) ->
+    func = generatedFunctionTable[k]
     # console.log "in: " + k
-    propIRExists = (Object.keys func.properties).every (pk) ->
+    propIRExists = (Object.keys func.generatedPropertyTable).every (pk) ->
       # console.log "  in: " + pk
-      prop = func.properties[pk]
+      prop = func.generatedPropertyTable[pk]
       # console.log prop
       if prop?
         return prop.IR?
@@ -322,31 +115,31 @@ ast2ir = (moduleName, parseTree, errors) ->
   # Generate IR for main function
   mainFunction.createMain m, (main) ->
     # Extract types and functions
-    extractedTypes = flattenTypeTable extractTypes parseTree.declarations, "main."
-    extractedFunctions = flattenFuncTable extractFunctions parseTree.declarations, "main"
+    generatedTypeTable = generateTypeTable parseTree.declarations, "main."
+    generatedFunctionTable = generateFunctionTable parseTree.declarations, "main"
 
     # Extract properties
-    (Object.keys extractedTypes).forEach (k) ->
-      type = extractedTypes[k]
-      type.properties = flattenPropertyTable extractTypeProperties type
-    (Object.keys extractedFunctions).forEach (k) ->
-      func = extractedFunctions[k]
-      func.properties = flattenPropertyTable extractFunctionProperties func
+    (Object.keys generatedTypeTable).forEach (k) ->
+      type = generatedTypeTable[k]
+      type.generatedPropertyTable = generateTypePropertyTable type
+    (Object.keys generatedFunctionTable).forEach (k) ->
+      func = generatedFunctionTable[k]
+      func.generatedPropertyTable = generateFunctionPropertyTable func
 
     # Try to generate IR for everything
     tryCount = 0
-    while missingIRExists extractedTypes, extractedFunctions
+    while missingIRExists generatedTypeTable, generatedFunctionTable
       tryCount += 1
       # console.log "Trying to generate missing IR for everything, try count: " + tryCount.toString()
 
       # Generate IR for types
-      (Object.keys extractedTypes).forEach (k) ->
-        type = extractedTypes[k]
+      (Object.keys generatedTypeTable).forEach (k) ->
+        type = generatedTypeTable[k]
         if type.IR? then return
 
         # Generate IR for type properties
-        (Object.keys type.properties).forEach (pk) ->
-          prop = type.properties[pk]
+        (Object.keys type.generatedPropertyTable).forEach (pk) ->
+          prop = type.generatedPropertyTable[pk]
           if prop.IR? then return
 
           # TODO : generate property IR
@@ -365,23 +158,23 @@ ast2ir = (moduleName, parseTree, errors) ->
         # main.mainBuilder.createStore alloca, constants.createConstant 123
 
       # Generate IR for functions
-      (Object.keys extractedFunctions).forEach (k) ->
-        func = extractedFunctions[k]
+      (Object.keys generatedFunctionTable).forEach (k) ->
+        func = generatedFunctionTable[k]
         if func.IR? then return
 
         # Check if arg and return types exist in type table
-        foundArg = searchTypeToRoot extractedTypes, func.func.arg.name, func.fullname
-        foundRet = searchTypeToRoot extractedTypes, func.func.ret.name, func.fullname
+        foundArg = searchTypeToRoot generatedTypeTable, func.func.arg.name, func.fullname
+        foundRet = searchTypeToRoot generatedTypeTable, func.func.ret.name, func.fullname
         if !foundArg?
           errors.storeSemanticError func.func.arg.name.red + " is not a valid argument type. Found in function " + ((func.fullname.split(".").slice 1).join ".").cyan + " in module " + moduleName.yellow, func.func.arg.token
         if !foundRet?
           errors.storeSemanticError func.func.ret.name.red + " is not a valid return type. Found in function " + ((func.fullname.split(".").slice 1).join ".").cyan + " in module " + moduleName.yellow, func.func.ret.token
 
         # Check if property types exist in type table
-        (Object.keys func.properties).forEach (pk) ->
-          prop = func.properties[pk]
+        (Object.keys func.generatedPropertyTable).forEach (pk) ->
+          prop = func.generatedPropertyTable[pk]
 
-          prop.found = searchTypeToRoot extractedTypes, prop.type.name, func.fullname
+          prop.found = searchTypeToRoot generatedTypeTable, prop.type.name, func.fullname
           if !prop.found?
             errors.storeSemanticError prop.type.name.red + " is not a proper type. Found in function " + (((func.fullname.split(".").slice 1).join ".") + "." + prop.propertyName).cyan + " in module " + moduleName.yellow, prop.token.token
 
@@ -393,8 +186,8 @@ ast2ir = (moduleName, parseTree, errors) ->
         # Generate IR for function body
         func.IR = functions.createFunction m, foundRet.IR.t, foundArg.IR, func.fullname, (f) ->
           # Generate IR for func properties
-          (Object.keys func.properties).forEach (pk) ->
-            prop = func.properties[pk]
+          (Object.keys func.generatedPropertyTable).forEach (pk) ->
+            prop = func.generatedPropertyTable[pk]
             if prop.IR? then return
 
             # Generate property IR
@@ -406,7 +199,7 @@ ast2ir = (moduleName, parseTree, errors) ->
                 initialValue = generateExpressionIR prop.expression, main, f
                 # console.log "¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬¬dakdaskldjaslkjdsalkdjlkajdaklsj"
                 # console.plog initialValue
-                if matchTypes extractedTypes, initialValue.type, prop.type.name, func.fullname
+                if matchTypes generatedTypeTable, initialValue.type, prop.type.name, func.fullname
 
                   f.builder.createStore initialValue.IR, prop.IR
                 else
@@ -421,7 +214,7 @@ ast2ir = (moduleName, parseTree, errors) ->
   # console.log "\n==================="
   # console.log "Type Table"
   # console.log ""
-  # console.plog extractedTypes
+  # console.plog generatedTypeTable
   # console.log "===================\n"
 
   # console.log "\n==================="

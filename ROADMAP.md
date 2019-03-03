@@ -30,6 +30,7 @@
 * Any function
 
 ### Compiler TODO List
+* More type safety (coffee->ts)
 * Symbol table
 * Function bodies
 * Expressions
