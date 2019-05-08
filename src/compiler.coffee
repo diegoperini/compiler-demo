@@ -1,6 +1,7 @@
 (require 'ts-node').register()
 fs = require 'fs'
 pathBasename = (require 'path').basename
+pathDirname = (require 'path').dirname
 colors = require 'colors'
 
 parser = require './parser'
@@ -224,8 +225,6 @@ ast2ir = (moduleName, parseTree, errors) ->
     console.plog generatedFunctionTable
     console.log "===================\n"
 
-  generator.writeBitcodeToFile(m, "./lol.bit")
-
   return m: m
 
 # Interface
@@ -246,8 +245,6 @@ compile = (filePath) ->
       console.log "\n==================="
       console.log "AST"
       console.log ""
-      console.flog parseTree, 'ast.txt', false
-      console.flog parseTree, 'ast.json', true
       console.log "===================\n"
 
       # Try generating IR
@@ -302,7 +299,13 @@ compile = (filePath) ->
 
 uncompile = (filePath) -> console.log "Uncompiled!"
 
-run = (d2module) -> console.log "Running d2 module!"
+run = (d2module, moduleName, moduleDirectory) ->
+  if d2module.parseTree?
+    generator.writeBitcodeToFile d2module.ir.m, moduleDirectory + "/" + moduleName + ".bit"
+    console.flog (generator.getIR d2module.ir.m), moduleDirectory + "/" + moduleName + ".ir.ll", false
+    console.flogJson d2module.parseTree, moduleDirectory + "/" + moduleName + ".ast.txt", false
+    console.flogJson d2module.parseTree, moduleDirectory + "/" + moduleName + ".ast.json", true
+    console.log "Running d2 module!"
 
 module.exports =
   compile: compile

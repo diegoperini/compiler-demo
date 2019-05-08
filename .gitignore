@@ -76,6 +76,7 @@ typings/
 .DS_Store
 
 # Temporary Ignores
-lol.bit
-ast.txt
-ast.json
+*.bit
+*.ast.txt
+*.ast.json
+*.ir.ll

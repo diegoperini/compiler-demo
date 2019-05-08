@@ -4,6 +4,8 @@ compiler = require './compiler'
 execSync = (require 'child_process').execSync
 fs = require 'fs'
 resolvePath = require('path').resolve
+pathBasename = (require 'path').basename
+pathDirname = (require 'path').dirname
 
 # Watcher Context
 context =
@@ -60,7 +62,7 @@ if process.argv.length is 3
           delete context.watchedFiles[f]
 
         # Run a d2module
-        runModule = (d2module) -> compiler.run d2module
+        runModule = (d2module, moduleName, moduleDirectory) -> compiler.run d2module, moduleName, moduleDirectory
 
         # Watch grammar change to trigger recompile
         context.grammarWatcher = fs.watch (resolvePath './src/grammar.ne'), persistent: true, () ->
@@ -96,7 +98,7 @@ if process.argv.length is 3
                       uncompileSingleFile f
                   else
                     uncompileSingleFile f
-              runModule context.watchedFiles[f].d2module
+              runModule context.watchedFiles[f].d2module, (pathBasename f), (pathDirname f)
 
       # Periodically keep context up to date
       watchEveryting = () -> recompile compare check()

@@ -11,6 +11,10 @@ export function logIR(llvmModule: llvm.Module) {
   console.log(llvmModule.print())
 }
 
+export function getIR(llvmModule: llvm.Module) {
+  return llvmModule.print()
+}
+
 // Write bitcode to file
 export function writeBitcodeToFile(llvmModule: llvm.Module, filePath: string) {
   try {
@@ -55,4 +59,4 @@ function test() {
   // otool -tvV lol
 }
 
-test()
+// test()

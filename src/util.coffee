@@ -25,7 +25,7 @@ console.plog = (l) ->
   obj = util.inspect l, opt
   console.log obj
 
-console.flog = (l, file, asJson) ->
+console.flogJson = (l, file, asJson) ->
   if asJson? and asJson
     fs.writeFileSync file, JSON.stringify l, null, 2
   else
@@ -37,3 +37,6 @@ console.flog = (l, file, asJson) ->
     obj = util.inspect l, opt
 
     fs.writeFileSync file, obj
+
+console.flog = (l, file) ->
+  fs.writeFileSync file, l
