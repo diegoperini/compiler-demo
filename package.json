@@ -10,7 +10,7 @@
     "coffeescript": "^2.3.2",
     "colors": "^1.3.2",
     "llvm-node": "^2.1.0",
-    "lodash": "^4.17.11",
+    "lodash": "^4.17.13",
     "moo": "^0.4.3",
     "nearley": "^2.15.1",
     "ts-node": "^7.0.1",
