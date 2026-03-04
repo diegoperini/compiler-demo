@@ -12,7 +12,7 @@
     "llvm-node": "^2.1.0",
     "lodash": "^4.17.21",
     "moo": "^0.4.3",
-    "nearley": "^2.15.1",
+    "nearley": "^2.20.1",
     "ts-node": "^7.0.1",
     "typescript": "^3.1.3"
   },
